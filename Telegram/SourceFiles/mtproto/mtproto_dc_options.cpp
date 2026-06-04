@@ -1,4 +1,4 @@
-/*
+﻿/*
 This file is part of Telegram Desktop,
 the official desktop application for the Telegram messaging service.
 
@@ -31,7 +31,7 @@ struct BuiltInDc {
 // patch by onysd
 /**
 const BuiltInDc kBuiltInDcs[] = {
-	{ 1, "149.154.175.50" , 443 },
+	{ 1, "127.0.0.1" , 10443 },
 	{ 2, "149.154.167.51" , 443 },
 	{ 2, "95.161.76.100"  , 443 },
 	{ 3, "149.154.175.100", 443 },
@@ -48,7 +48,7 @@ const BuiltInDc kBuiltInDcsIPv6[] = {
 };
 
 const BuiltInDc kBuiltInDcsTest[] = {
-	{ 1, "149.154.175.10" , 443 },
+	{ 1, "127.0.0.1" , 10443 },
 	{ 2, "149.154.167.40" , 443 },
 	{ 3, "149.154.175.117", 443 }
 };
@@ -80,11 +80,11 @@ t6N/byY9Nw9p21Og3AoXSL2q/2IJ1WRUhebgAdGVMlV1fkuOQoEzR7EdpqtQD9Cs\n\
 -----END RSA PUBLIC KEY-----" };
 **/
 const BuiltInDc kBuiltInDcs[] = {
-    { 1, "XXX.XXX.XXX.XXX" , 10443 },
+    { 1, "127.0.0.1" , 10443 },
 };
 
 const BuiltInDc kBuiltInDcsTest[] = {
-    { 1, "XXX.XXX.XXX.XXX" , 10443 },
+    { 1, "127.0.0.1" , 10443 },
 };
 
 const char *kTestPublicRSAKeys[] = { "\

@@ -310,7 +310,8 @@ Or set path manually in menu (1) / env OWPNG_VCVARS64 / config VcVarsPath.
 function Invoke-InVsEnvironment {
     param(
         [Parameter(Mandatory)][string]$Command,
-        [string]$WorkingDirectory = $RepoRoot
+        [string]$WorkingDirectory = $RepoRoot,
+        [string]$Label = ''
     )
     $vcvars = $script:ResolvedVcVars
     if (-not $vcvars) {
@@ -318,52 +319,146 @@ function Invoke-InVsEnvironment {
     }
     if (-not $vcvars) { throw 'vcvars64.bat not found. Run prerequisites check again.' }
 
-    $escapedWd = $WorkingDirectory.Replace('"', '""')
-    $full = "`"$vcvars`" >nul && cd /d `"$escapedWd`" && $Command"
-    Write-Host "cmd: $Command" -ForegroundColor DarkGray
-    & cmd.exe /c $full
-    if ($LASTEXITCODE -ne 0) {
-        throw "Command failed (exit $LASTEXITCODE): $Command"
+    $logDir = Join-Path $RepoRoot 'logs'
+    New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+    $safeName = ($Label -replace '[^\w\-]+', '_').Trim('_')
+    if ([string]::IsNullOrWhiteSpace($safeName)) {
+        $safeName = ($Command -replace '[^\w\-]+', '_').Substring(0, [Math]::Min(40, ($Command -replace '[^\w\-]+', '_').Length))
     }
+    $logFile = Join-Path $logDir ("{0}-{1}.log" -f $safeName, (Get-Date -Format 'yyyyMMdd-HHmmss'))
+
+    $escapedWd = $WorkingDirectory.Replace('"', '""')
+    $escapedLog = $logFile.Replace('"', '""')
+    $full = "`"$vcvars`" >nul && cd /d `"$escapedWd`" && $Command >> `"$escapedLog`" 2>&1"
+
+    $title = if ($Label) { $Label } else { $Command }
+    Write-Host "cmd: $Command" -ForegroundColor DarkGray
+    Write-Host "log: $logFile" -ForegroundColor DarkGray
+    Write-Host ''
+    Write-WarnMsg @"
+Long step started at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss').
+Output goes to the log file; the console shows new lines + a heartbeat every 30s.
+Tip: run build-desktop.cmd from PowerShell or cmd if Git Bash shows only blank lines.
+"@
+
+    if (Test-Path $logFile) { Remove-Item $logFile -Force }
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'cmd.exe'
+    $psi.Arguments = "/c `"$full`""
+    $psi.WorkingDirectory = $WorkingDirectory
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $psi
+    $null = $process.Start()
+
+    $logOffset = 0L
+    $lastHeartbeat = [datetime]::UtcNow
+
+    while (-not $process.HasExited) {
+        if (Test-Path $logFile) {
+            $stream = [System.IO.File]::Open($logFile, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+            try {
+                $stream.Seek($logOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
+                $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
+                while (-not $reader.EndOfStream) {
+                    $line = $reader.ReadLine()
+                    if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                    Write-Host $line
+                }
+                $logOffset = $stream.Position
+            }
+            finally {
+                $stream.Dispose()
+            }
+        }
+
+        $now = [datetime]::UtcNow
+        if (($now - $lastHeartbeat).TotalSeconds -ge 30) {
+            $lastHeartbeat = $now
+            $sizeKb = if (Test-Path $logFile) { [math]::Round((Get-Item $logFile).Length / 1KB, 1) } else { 0 }
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $title - still running (log ${sizeKb} KB)..." -ForegroundColor Cyan
+        }
+        Start-Sleep -Milliseconds 500
+    }
+
+    if (Test-Path $logFile) {
+        $tail = Get-Content -Path $logFile -Tail 20 -ErrorAction SilentlyContinue |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        if ($tail) {
+            Write-Host ''
+            Write-Host '--- last log lines ---' -ForegroundColor DarkGray
+            $tail | ForEach-Object { Write-Host $_ }
+        }
+    }
+
+    $exitCode = $process.ExitCode
+    Write-Host ''
+    if ($exitCode -ne 0) {
+        throw "Command failed (exit $exitCode): $Command`nSee log: $logFile"
+    }
+    Write-Ok "Finished: $title"
 }
 
 # --- build steps ---
 function Set-ServerEndpoint {
-    param([string]$Host, [int]$Port)
+    param([string]$ServerAddress, [int]$Port)
 
     if (-not (Test-Path $DcOptionsFile)) {
         throw "DC options file not found: $DcOptionsFile"
     }
 
     $content = Get-Content -Path $DcOptionsFile -Raw -Encoding UTF8
-    $replacement = "{ 1, `"$Host`" , $Port },"
 
-    $newContent = [regex]::Replace(
-        $content,
-        '\{ 1, "[^"]*" , \d+ \},',
-        $replacement,
-        2
-    )
+    # Only touch active OwpenGram arrays (not the big block inside /** ... **/).
+    $blockPattern = '(const BuiltInDc kBuiltInDcs(?:Test)?\[\] = \{\s*\r?\n\s*\{\s*1,\s*")([^"]*)("\s*,\s*)(\d+)(\s*\},\s*\r?\n\s*\};)'
 
-    if ($newContent -eq $content) {
-        Write-WarnMsg 'DC entries were not matched by regex; trying placeholder replace.'
-        $newContent = $content.Replace('XXX.XXX.XXX.XXX', $Host)
-        $newContent = [regex]::Replace($newContent, '(?<=, "XXX\.XXX\.XXX\.XXX" , )\d+', "$Port")
+    $matches = [regex]::Matches($content, $blockPattern)
+    if ($matches.Count -lt 2) {
+        Write-WarnMsg 'Active DC arrays not found; trying legacy placeholder replace.'
+        if ($content.Contains('XXX.XXX.XXX.XXX')) {
+            $content = $content.Replace('XXX.XXX.XXX.XXX', $ServerAddress)
+            $content = [regex]::Replace($content, '(?<=, "XXX\.XXX\.XXX\.XXX"\s*,\s*)\d+', "$Port")
+            [System.IO.File]::WriteAllText($DcOptionsFile, $content, (New-Object System.Text.UTF8Encoding $false))
+            Write-Ok "Server endpoint patched (placeholder): ${ServerAddress}:$Port"
+            return
+        }
+        throw 'Failed to patch mtproto_dc_options.cpp - active kBuiltInDcs blocks not found.'
     }
 
-    if ($newContent -eq $content) {
-        throw 'Failed to patch mtproto_dc_options.cpp — check file format.'
+    $alreadySet = $true
+    foreach ($m in $matches) {
+        if ($m.Groups[2].Value -ne $ServerAddress -or [int]$m.Groups[4].Value -ne $Port) {
+            $alreadySet = $false
+            break
+        }
+    }
+    if ($alreadySet) {
+        Write-Ok "Server endpoint already set to ${ServerAddress}:$Port (no changes needed)"
+        return
     }
 
-    Set-Content -Path $DcOptionsFile -Value $newContent -Encoding UTF8 -NoNewline
-    Write-Ok "Server endpoint patched: ${Host}:$Port"
+    $newContent = [regex]::Replace($content, $blockPattern, {
+        param($m)
+        $m.Groups[1].Value + $ServerAddress + $m.Groups[3].Value + $Port + $m.Groups[5].Value
+    })
+
+    if ($newContent -eq $content) {
+        throw 'Failed to patch mtproto_dc_options.cpp - replacement produced no changes.'
+    }
+
+    [System.IO.File]::WriteAllText($DcOptionsFile, $newContent, (New-Object System.Text.UTF8Encoding $false))
+    Write-Ok "Server endpoint patched: ${ServerAddress}:$Port"
 }
 
 function Update-Submodules {
     Write-Step 'Updating git submodules (may take a while)'
     Push-Location $RepoRoot
     try {
-        & git submodule update --init --recursive
+        $env:GIT_TERMINAL_PROMPT = '0'
+        & git -c advice.detachedHead=false submodule update --init --recursive --quiet
         if ($LASTEXITCODE -ne 0) { throw "git submodule failed with exit $LASTEXITCODE" }
         Write-Ok 'Submodules are up to date'
     }
@@ -392,7 +487,7 @@ function Start-Prepare {
     }
 
     Write-Step 'Running Telegram\build\prepare\win.bat'
-    Invoke-InVsEnvironment -Command 'Telegram\build\prepare\win.bat' -WorkingDirectory $RepoRoot
+    Invoke-InVsEnvironment -Command 'Telegram\build\prepare\win.bat' -WorkingDirectory $RepoRoot -Label 'prepare'
     Write-Ok 'Prepare finished'
 }
 
@@ -401,7 +496,7 @@ function Start-Configure {
 
     Write-Step 'Running configure.bat x64'
     $cmd = "configure.bat x64 -D TDESKTOP_API_ID=$ApiId -D TDESKTOP_API_HASH=$ApiHash"
-    Invoke-InVsEnvironment -Command $cmd -WorkingDirectory $TelegramDir
+    Invoke-InVsEnvironment -Command $cmd -WorkingDirectory $TelegramDir -Label 'configure'
 
     if (-not (Test-Path $SolutionPath)) {
         throw "Solution not found after configure: $SolutionPath"
@@ -419,7 +514,7 @@ function Start-MsBuild {
     Write-Step "Building Telegram ($Configuration) via MSBuild"
     $sln = $SolutionPath.Replace('\', '\\')
     $cmd = "msbuild `"$SolutionPath`" /t:Telegram /p:Configuration=$Configuration /m /v:minimal"
-    Invoke-InVsEnvironment -Command $cmd -WorkingDirectory $RepoRoot
+    Invoke-InVsEnvironment -Command $cmd -WorkingDirectory $RepoRoot -Label "msbuild-$Configuration"
 
     $exe = Join-Path $RepoRoot "out\$Configuration\Telegram.exe"
     if (Test-Path $exe) {
@@ -498,7 +593,7 @@ function Run-StepPipeline {
 
     foreach ($step in $Steps) {
         switch ($step) {
-            'patch'      { Set-ServerEndpoint -Host $Cfg.ServerHost -Port $Cfg.ServerPort }
+            'patch'      { Set-ServerEndpoint -ServerAddress $Cfg.ServerHost -Port $Cfg.ServerPort }
             'submodules' { Update-Submodules }
             'prepare'    { Start-Prepare }
             'configure'  { Start-Configure -ApiId $Cfg.ApiId -ApiHash $Cfg.ApiHash }
