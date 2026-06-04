@@ -302,6 +302,17 @@ Or set path manually in menu (1) / env OWPNG_VCVARS64 / config VcVarsPath.
 "@
     }
     Write-Ok "VS toolchain: $vcvars"
+
+    $nmakeCheck = "call `"$vcvars`" >nul 2>&1 && where nmake >nul 2>&1"
+    & cmd.exe /c $nmakeCheck
+    if ($LASTEXITCODE -ne 0) {
+        throw @"
+nmake not found after vcvars64. Install MSVC C++ build tools (Desktop development with C++).
+Run prepare from 'x64 Native Tools Command Prompt for VS 2022', or fix VcVarsPath in settings.
+"@
+    }
+    Write-Ok 'nmake is available in VS environment'
+
     Write-Ok "git: $(git --version)"
     Write-Ok "python: $(python --version 2>&1)"
     return $vcvars
@@ -329,9 +340,8 @@ function Invoke-InVsEnvironment {
 
     $escapedWd = $WorkingDirectory.Replace('"', '""')
     $escapedLog = $logFile.Replace('"', '""')
-    # Put Windows find/type before Git usr\bin so libwebp Makefile.vc can detect ARCH.
-    $pathFix = 'set "PATH=%SystemRoot%\System32;%SystemRoot%;%PATH%"'
-    $full = "`"$vcvars`" >nul && $pathFix && cd /d `"$escapedWd`" && $Command >> `"$escapedLog`" 2>&1"
+    # Must use call so vcvars PATH (nmake, cl, etc.) persists for win.bat / python / command.bat.
+    $full = "call `"$vcvars`" >nul 2>&1 && cd /d `"$escapedWd`" && $Command >> `"$escapedLog`" 2>&1"
 
     $title = if ($Label) { $Label } else { $Command }
     Write-Host "cmd: $Command" -ForegroundColor DarkGray
@@ -490,6 +500,7 @@ function Start-Prepare {
 
     Write-Step 'Running Telegram\build\prepare\win.bat silent'
     Write-WarnMsg 'silent = auto-rebuild CHANGED libraries (no r/a/s prompts; required for this script).'
+    Write-WarnMsg 'Tip: if only libwebp failed before, menu 4 still runs all stale steps; or: Telegram\build\prepare\win.bat silent libwebp'
     Invoke-InVsEnvironment -Command 'Telegram\build\prepare\win.bat silent' -WorkingDirectory $RepoRoot -Label 'prepare'
     Write-Ok 'Prepare finished'
 }
