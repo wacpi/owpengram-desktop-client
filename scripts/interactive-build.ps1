@@ -486,8 +486,9 @@ function Start-Prepare {
         }
     }
 
-    Write-Step 'Running Telegram\build\prepare\win.bat'
-    Invoke-InVsEnvironment -Command 'Telegram\build\prepare\win.bat' -WorkingDirectory $RepoRoot -Label 'prepare'
+    Write-Step 'Running Telegram\build\prepare\win.bat silent'
+    Write-WarnMsg 'silent = auto-rebuild CHANGED libraries (no r/a/s prompts; required for this script).'
+    Invoke-InVsEnvironment -Command 'Telegram\build\prepare\win.bat silent' -WorkingDirectory $RepoRoot -Label 'prepare'
     Write-Ok 'Prepare finished'
 }
 
