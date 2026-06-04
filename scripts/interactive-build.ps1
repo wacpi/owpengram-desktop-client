@@ -22,7 +22,9 @@ $TelegramDir = Join-Path $RepoRoot 'Telegram'
 $DcOptionsFile = Join-Path $RepoRoot 'Telegram\SourceFiles\mtproto\mtproto_dc_options.cpp'
 $ConfigFile = Join-Path $RepoRoot '.owpengram-build.local.json'
 $SolutionPath = Join-Path $RepoRoot 'out\Telegram.sln'
-$LibrariesMarker = Join-Path $RepoRoot 'Libraries\win64\local'
+# prepare.py chdirs 4 levels up from Telegram/build/prepare -> parent owpengram folder
+$LibrariesRoot = (Resolve-Path (Join-Path $RepoRoot '..')).Path
+$LibrariesMarker = Join-Path $LibrariesRoot 'Libraries\win64\local'
 
 $TestApiId = '17349'
 $TestApiHash = '344583e45741c457fe1862106095a5eb'
@@ -500,7 +502,8 @@ function Start-Prepare {
 
     Write-Step 'Running Telegram\build\prepare\win.bat silent'
     Write-WarnMsg 'silent = auto-rebuild CHANGED libraries (no r/a/s prompts; required for this script).'
-    Write-WarnMsg 'Resume one stage: Telegram\build\prepare\win.bat silent <name>  (e.g. libwebp, ffmpeg)'
+    Write-WarnMsg 'Resume one stage: Telegram\build\prepare\win.bat silent <name>  (e.g. libvpx, ffmpeg)'
+    Write-WarnMsg 'If MSBuild misses vpxmt.lib: delete Libraries\win64\cache_keys\libvpx and Libraries\win64\libvpx, then silent libvpx'
     Invoke-InVsEnvironment -Command 'Telegram\build\prepare\win.bat silent' -WorkingDirectory $RepoRoot -Label 'prepare'
     Write-Ok 'Prepare finished'
 }
@@ -530,13 +533,14 @@ function Start-MsBuild {
     $cmd = "msbuild `"$SolutionPath`" /t:Telegram /p:Configuration=$Configuration /m /v:minimal"
     Invoke-InVsEnvironment -Command $cmd -WorkingDirectory $RepoRoot -Label "msbuild-$Configuration"
 
-    $exe = Join-Path $RepoRoot "out\$Configuration\Telegram.exe"
-    if (Test-Path $exe) {
-        Write-Ok "Binary: $exe"
+    foreach ($name in @('OwpenGram.exe', 'Telegram.exe')) {
+        $exe = Join-Path $RepoRoot "out\$Configuration\$name"
+        if (Test-Path $exe) {
+            Write-Ok "Binary: $exe"
+            return
+        }
     }
-    else {
-        Write-WarnMsg "Build finished but exe not found at expected path: $exe"
-    }
+    Write-WarnMsg "Build finished but exe not found under out\$Configuration\ (OwpenGram.exe / Telegram.exe)"
 }
 
 function Open-VisualStudioSolution {
