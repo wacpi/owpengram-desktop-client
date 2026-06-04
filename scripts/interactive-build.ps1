@@ -500,7 +500,7 @@ function Start-Prepare {
 
     Write-Step 'Running Telegram\build\prepare\win.bat silent'
     Write-WarnMsg 'silent = auto-rebuild CHANGED libraries (no r/a/s prompts; required for this script).'
-    Write-WarnMsg 'Tip: if only libwebp failed before, menu 4 still runs all stale steps; or: Telegram\build\prepare\win.bat silent libwebp'
+    Write-WarnMsg 'Resume one stage: Telegram\build\prepare\win.bat silent <name>  (e.g. libwebp, ffmpeg)'
     Invoke-InVsEnvironment -Command 'Telegram\build\prepare\win.bat silent' -WorkingDirectory $RepoRoot -Label 'prepare'
     Write-Ok 'Prepare finished'
 }
