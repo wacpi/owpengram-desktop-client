@@ -20,7 +20,19 @@ To change the server address, replace all instances of `XXX.XXX.XXX.XXX` in the 
 
 ## 📚 Build Instructions & Documentation
 
-For detailed build instructions, system requirements, and comprehensive documentation, please refer to the original [Telegram Desktop repository](https://github.com/telegramdesktop/tdesktop).
+### Interactive build (Windows)
+
+Double-click or run from any terminal:
+
+```bat
+build-desktop.cmd
+```
+
+The script will guide you through server IP, API credentials, submodules, `prepare`, `configure`, and MSBuild. Settings are saved to `.owpengram-build.local.json` (gitignored).
+
+Requirements: **Visual Studio 2022** (C++ x64), **Python 3.10**, **Git**.
+
+For manual steps and other platforms, see the original [Telegram Desktop build docs](https://github.com/telegramdesktop/tdesktop) and `docs/building-win-x64.md` in this repository.
 
 ## 💬 Community
 
