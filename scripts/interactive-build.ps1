@@ -329,7 +329,9 @@ function Invoke-InVsEnvironment {
 
     $escapedWd = $WorkingDirectory.Replace('"', '""')
     $escapedLog = $logFile.Replace('"', '""')
-    $full = "`"$vcvars`" >nul && cd /d `"$escapedWd`" && $Command >> `"$escapedLog`" 2>&1"
+    # Put Windows find/type before Git usr\bin so libwebp Makefile.vc can detect ARCH.
+    $pathFix = 'set "PATH=%SystemRoot%\System32;%SystemRoot%;%PATH%"'
+    $full = "`"$vcvars`" >nul && $pathFix && cd /d `"$escapedWd`" && $Command >> `"$escapedLog`" 2>&1"
 
     $title = if ($Label) { $Label } else { $Command }
     Write-Host "cmd: $Command" -ForegroundColor DarkGray
