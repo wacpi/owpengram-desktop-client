@@ -1,4 +1,4 @@
-﻿/*
+/*
 This file is part of Telegram Desktop,
 the official desktop application for the Telegram messaging service.
 
@@ -80,11 +80,11 @@ t6N/byY9Nw9p21Og3AoXSL2q/2IJ1WRUhebgAdGVMlV1fkuOQoEzR7EdpqtQD9Cs\n\
 -----END RSA PUBLIC KEY-----" };
 **/
 const BuiltInDc kBuiltInDcs[] = {
-    { 1, "127.0.0.1" , 10443 },
+    { 1, "System.Management.Automation.Internal.Host.InternalHost" , 10443 },
 };
 
 const BuiltInDc kBuiltInDcsTest[] = {
-    { 1, "127.0.0.1" , 10443 },
+    { 1, "System.Management.Automation.Internal.Host.InternalHost" , 10443 },
 };
 
 const char *kTestPublicRSAKeys[] = { "\

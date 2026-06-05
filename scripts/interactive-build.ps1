@@ -70,13 +70,13 @@ function Read-Choice([string]$Prompt, [string[]]$Options, [int]$DefaultIndex = 0
 
 # --- config persistence ---
 function Get-DefaultConfig {
-    [ordered]@{
-        ServerHost     = '127.0.0.1'
-        ServerPort     = 10443
-        ApiId          = $TestApiId
-        ApiHash        = $TestApiHash
-        Configuration  = 'Debug'
-        UseTestApi     = $true
+    @{
+        ServerHost                  = '127.0.0.1'
+        ServerPort                  = 10443
+        ApiId                       = $TestApiId
+        ApiHash                     = $TestApiHash
+        Configuration               = 'Debug'
+        UseTestApi                  = $true
         SkipPrepareIfLibrariesExist = $true
         VcVarsPath                  = ''
     }
@@ -85,6 +85,8 @@ function Get-DefaultConfig {
 $script:ResolvedVcVars = $null
 
 function Load-Config {
+    param([switch]$Quiet)
+
     $cfg = Get-DefaultConfig
     if (Test-Path $ConfigFile) {
         try {
@@ -94,7 +96,9 @@ function Load-Config {
                     $cfg[$key] = $saved.$key
                 }
             }
-            Write-Ok "Loaded saved settings from $(Split-Path -Leaf $ConfigFile)"
+            if (-not $Quiet) {
+                Write-Ok "Loaded saved settings from $(Split-Path -Leaf $ConfigFile)"
+            }
         }
         catch {
             Write-WarnMsg "Could not read config file, using defaults."
@@ -601,6 +605,7 @@ function Edit-ConfigInteractive([hashtable]$Cfg) {
     }
 
     Save-Config $Cfg
+    return Load-Config -Quiet
 }
 
 function Run-StepPipeline {
@@ -608,6 +613,9 @@ function Run-StepPipeline {
         [hashtable]$Cfg,
         [string[]]$Steps
     )
+
+    $script:Cfg = Load-Config -Quiet
+    $Cfg = $script:Cfg
 
     foreach ($step in $Steps) {
         switch ($step) {
@@ -642,7 +650,7 @@ function Show-Menu([hashtable]$Cfg) {
 
     switch ($choice) {
         '0' { return $false }
-        '1' { Edit-ConfigInteractive $Cfg; return $true }
+        '1' { $script:Cfg = Edit-ConfigInteractive $Cfg; return $true }
         '2' { Run-StepPipeline $Cfg @('patch'); Save-Config $Cfg; return $true }
         '3' { Run-StepPipeline $Cfg @('submodules'); return $true }
         '4' { Run-StepPipeline $Cfg @('prepare'); return $true }
@@ -680,7 +688,7 @@ try {
     $null = Test-Prerequisites -Cfg $script:Cfg
 
     if ($NoMenu) {
-        Edit-ConfigInteractive $script:Cfg
+        $script:Cfg = Edit-ConfigInteractive $script:Cfg
         if (-not (Read-YesNo 'Run full pipeline after saving settings?' $true)) { exit 0 }
         Run-StepPipeline $script:Cfg @('patch', 'submodules', 'prepare', 'configure', 'build')
         exit 0
@@ -689,7 +697,7 @@ try {
     # First run wizard when no saved config
     if (-not (Test-Path $ConfigFile)) {
         Write-WarnMsg 'No saved settings found — quick setup wizard.'
-        Edit-ConfigInteractive $script:Cfg
+        $script:Cfg = Edit-ConfigInteractive $script:Cfg
     }
 
     do {
