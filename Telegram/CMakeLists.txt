@@ -283,6 +283,8 @@ PRIVATE
     boxes/connection_box.h
     boxes/owpengram_add_server_box.cpp
     boxes/owpengram_add_server_box.h
+    boxes/owpengram_server_details_box.cpp
+    boxes/owpengram_server_details_box.h
     boxes/create_poll_box.cpp
     boxes/create_poll_box.h
     boxes/delete_messages_box.cpp

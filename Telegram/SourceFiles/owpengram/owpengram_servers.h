@@ -52,8 +52,14 @@ void ApplyServerToAccount(
 
 void CheckServerOnline(
 	const Server &server,
-	Fn<void(bool online)> done);
+	Fn<void(bool online, int latencyMs)> done);
+
+void WaitForServerConnection(
+	not_null<Main::Account*> account,
+	const Server &server,
+	Fn<void()> done);
 
 [[nodiscard]] QString DefaultLogoPath();
+[[nodiscard]] QString FormatEndpoint(const Server &server);
 
 } // namespace Owpengram

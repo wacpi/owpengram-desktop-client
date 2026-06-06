@@ -14,7 +14,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mtproto/facade.h"
 #include "mtproto/mtproto_config.h"
 #include "mtproto/mtproto_dc_options.h"
+#include "mtproto/facade.h"
 #include "mtproto/mtp_instance.h"
+#include "base/timer.h"
 #include "storage/localstorage.h"
 #include "storage/storage_account.h"
 #include "base/qt/qt_common_adapters.h"
@@ -107,6 +109,27 @@ void WriteCustomServersJson(const QJsonArray &array) {
 	return object;
 }
 
+[[nodiscard]] bool EndpointMatchesServer(
+		not_null<const MTP::Instance*> mtp,
+		const Server &server) {
+	const auto &options = mtp->dcOptions();
+	const auto variants = options.lookup(
+		MTP::Instance::Fields::kDefaultMainDc,
+		MTP::DcType::Regular,
+		false);
+	for (auto address = 0; address != MTP::DcOptions::Variants::AddressTypeCount; ++address) {
+		for (auto protocol = 0; protocol != MTP::DcOptions::Variants::ProtocolCount; ++protocol) {
+			for (const auto &endpoint : variants.data[address][protocol]) {
+				if (endpoint.ip == server.host.toStdString()
+					&& endpoint.port == server.port) {
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
 [[nodiscard]] std::vector<Server> ReadCustomServers() {
 	auto result = std::vector<Server>();
 	for (const auto &value : ReadCustomServersJson()) {
@@ -137,11 +160,20 @@ Server OfficialServer() {
 	if (const auto endpoint = ReadOfficialEndpoint()) {
 		result.host = endpoint->first;
 		result.port = endpoint->second;
-	} else {
+	}
+	if (result.host.isEmpty()) {
 		result.host = u"192.168.100.10"_q;
+	}
+	if (result.port <= 0) {
 		result.port = 10443;
 	}
 	return result;
+}
+
+QString FormatEndpoint(const Server &server) {
+	return u"IP: %1  Port: %2"_q.arg(
+		server.host,
+		server.port > 0 ? QString::number(server.port) : u"—"_q);
 }
 
 std::vector<Server> ListServers() {
@@ -217,6 +249,7 @@ void ApplyServerToAccount(
 	auto &mtp = account->mtp();
 	auto &dcOptions = mtp.dcOptions();
 
+	mtp.restart();
 	dcOptions.setOptionsLocked(false);
 	dcOptions.setFromList(MTP_vector<MTPDcOption>(1, MTP_dcOption(
 		MTP_flags(flags),
@@ -232,21 +265,44 @@ void ApplyServerToAccount(
 		server.host,
 		server.port);
 	account->local().writeMtpConfig();
-	mtp.restart();
 	mtp.reInitConnection(dcId);
 }
 
-void CheckServerOnline(const Server &server, Fn<void(bool online)> done) {
+void WaitForServerConnection(
+		not_null<Main::Account*> account,
+		const Server &server,
+		Fn<void()> done) {
+	const auto timer = std::make_shared<base::Timer>();
+	const auto started = crl::now();
+	timer->setCallback([=]() {
+		auto &mtp = account->mtp();
+		const auto dcId = mtp.mainDcId();
+		const auto connected = (mtp.dcstate(dcId) == MTP::ConnectedState)
+			&& EndpointMatchesServer(&mtp, server);
+		if (connected || crl::now() - started > 10000) {
+			done();
+			return;
+		}
+		timer->callOnce(100);
+	});
+	timer->callOnce(100);
+}
+
+void CheckServerOnline(
+		const Server &server,
+		Fn<void(bool online, int latencyMs)> done) {
 	if (!server.valid()) {
-		done(false);
+		done(false, -1);
 		return;
 	}
 	const auto host = server.host;
 	const auto port = server.port;
 	crl::async([=, done = std::move(done)]() mutable {
 		QTcpSocket socket;
+		const auto begin = crl::now();
 		socket.connectToHost(host, port);
 		const auto connected = socket.waitForConnected(kCheckTimeoutMs);
+		const auto latency = int(crl::now() - begin);
 		if (connected) {
 			socket.disconnectFromHost();
 			if (socket.state() != QAbstractSocket::UnconnectedState) {
@@ -254,7 +310,7 @@ void CheckServerOnline(const Server &server, Fn<void(bool online)> done) {
 			}
 		}
 		crl::on_main([=, done = std::move(done)]() mutable {
-			done(connected);
+			done(connected, connected ? latency : -1);
 		});
 	});
 }

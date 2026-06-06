@@ -77,9 +77,16 @@ void AddServerBox::addLabel(const QString &text) {
 
 void AddServerBox::save() {
 	const auto name = _name->getLastText().trimmed();
-	const auto host = _host->getLastText().trimmed();
-	const auto port = _portField->getLastText().toInt();
+	auto host = _host->getLastText().trimmed();
+	auto port = _portField->getLastText().toInt();
 	const auto description = _description->getLastText().trimmed();
+	if (host.contains(':')) {
+		const auto parts = host.split(':');
+		if (parts.size() == 2 && port <= 0) {
+			host = parts[0].trimmed();
+			port = parts[1].trimmed().toInt();
+		}
+	}
 	if (name.isEmpty() || host.isEmpty() || port <= 0) {
 		Ui::Toast::Show(tr::lng_owpengram_server_invalid(tr::now));
 		return;

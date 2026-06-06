@@ -7606,5 +7606,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_owpengram_server_endpoint" = "IP: {host}  Port: {port}";
 "lng_owpengram_server_offline_confirm" = "This server appears to be offline. Join anyway?";
 "lng_owpengram_server_invalid" = "Please fill in a valid name, IP address and port.";
+"lng_owpengram_server_latency" = "latency: {latency}ms";
+"lng_owpengram_server_details_host" = "IP address";
+"lng_owpengram_server_details_port" = "Port";
+"lng_owpengram_server_details_description" = "Description";
+"lng_owpengram_server_details_status" = "Connection status";
+"lng_owpengram_server_checking" = "Checking…";
 
 // Keys finished

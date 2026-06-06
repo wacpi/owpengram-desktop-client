@@ -10,11 +10,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "intro/intro_widget.h"
 #include "boxes/abstract_box.h"
 #include "boxes/owpengram_add_server_box.h"
+#include "boxes/owpengram_server_details_box.h"
 #include "lang/lang_keys.h"
 #include "main/main_account.h"
 #include "owpengram/owpengram_servers.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/painter.h"
+#include "ui/toast/toast.h"
 #include "ui/ui_utility.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
@@ -29,8 +31,9 @@ public:
 	ServerCard(
 		QWidget *parent,
 		const Owpengram::Server &server,
-		Fn<void(const Owpengram::Server&)> join);
-	void setOnline(bool online);
+		Fn<void(const Owpengram::Server&)> join,
+		Fn<void(const Owpengram::Server&)> details);
+	void setOnline(bool online, int latencyMs);
 protected:
 	void paintEvent(QPaintEvent *e) override;
 	void resizeEvent(QResizeEvent *e) override;
@@ -38,40 +41,40 @@ private:
 	void updateGeometryInner();
 	Owpengram::Server _server;
 	Fn<void(const Owpengram::Server&)> _join;
+	Fn<void(const Owpengram::Server&)> _details;
 	object_ptr<Ui::RpWidget> _logo;
 	object_ptr<Ui::FlatLabel> _name;
 	object_ptr<Ui::FlatLabel> _endpoint;
 	object_ptr<Ui::FlatLabel> _description;
 	object_ptr<Ui::FlatLabel> _status;
+	object_ptr<Ui::FlatLabel> _latency;
 	object_ptr<Ui::RoundButton> _joinButton;
 	std::optional<bool> _online;
+	int _latencyMs = -1;
 };
 ServerCard::ServerCard(
 	QWidget *parent,
 	const Owpengram::Server &server,
-	Fn<void(const Owpengram::Server&)> join)
+	Fn<void(const Owpengram::Server&)> join,
+	Fn<void(const Owpengram::Server&)> details)
 : RippleButton(parent, st::introServerCardRipple)
 , _server(server)
 , _join(std::move(join))
+, _details(std::move(details))
 , _logo(this)
 , _name(this, server.name, st::introServerCardName)
-, _endpoint(this, tr::lng_owpengram_server_endpoint(
-	tr::now,
-	lt_host,
-	server.host,
-	lt_port,
-	QString::number(server.port)), st::introServerCardEndpoint)
+, _endpoint(this, Owpengram::FormatEndpoint(server), st::introServerCardEndpoint)
 , _description(this, server.description, st::introServerCardDescription)
-, _status(this, QString(), st::introServerCardStatusOnline)
+, _status(this, tr::lng_owpengram_server_checking(tr::now), st::introServerCardStatusOnline)
+, _latency(this, QString(), st::introServerCardStatusLatency)
 , _joinButton(this, tr::lng_owpengram_server_join(), st::introServerCardJoinButton) {
-	setPointerCursor(false);
+	setPointerCursor(true);
 	_logo->resize(st::introServerCardLogo, st::introServerCardLogo);
 	_logo->setAttribute(Qt::WA_TransparentForMouseEvents);
 	_logo->paintRequest(
 	) | rpl::on_next([=] {
 		auto p = QPainter(_logo.data());
 		PainterHighQualityEnabler hq(p);
-		p.setRenderHint(QPainter::Antialiasing);
 		const auto image = QPixmap(_server.logoPath).scaled(
 			st::introServerCardLogo,
 			st::introServerCardLogo,
@@ -81,28 +84,37 @@ ServerCard::ServerCard(
 		const auto top = (st::introServerCardLogo - image.height()) / 2;
 		p.drawPixmap(left, top, image);
 	}, _logo->lifetime());
-	_name->setAttribute(Qt::WA_TransparentForMouseEvents);
-	_endpoint->setAttribute(Qt::WA_TransparentForMouseEvents);
-	_description->setAttribute(Qt::WA_TransparentForMouseEvents);
-	_status->setAttribute(Qt::WA_TransparentForMouseEvents);
-	_status->hide();
+	for (const auto label : { _name.data(), _endpoint.data(), _description.data(), _status.data(), _latency.data() }) {
+		label->setAttribute(Qt::WA_TransparentForMouseEvents);
+	}
+	setClickedCallback([=] {
+		if (_details) {
+			_details(_server);
+		}
+	});
 	_joinButton->setClickedCallback([=] {
 		if (_join) {
 			_join(_server);
 		}
 	});
-	resize(st::introServerCardMinWidth, st::introServerCardHeight);
+	resize(st::introServerCardMinWidth, st::introServerCardMinWidth);
 	updateGeometryInner();
 }
-void ServerCard::setOnline(bool online) {
+void ServerCard::setOnline(bool online, int latencyMs) {
 	_online = online;
+	_latencyMs = latencyMs;
 	_status->setText(online
 		? tr::lng_owpengram_server_online(tr::now)
 		: tr::lng_owpengram_server_offline(tr::now));
 	_status->setTextColorOverride(online
 		? st::windowActiveTextFg->c
 		: st::attentionButtonFg->c);
-	_status->show();
+	_latency->setText(online && latencyMs >= 0
+		? tr::lng_owpengram_server_latency(
+			tr::now,
+			lt_latency,
+			QString::number(latencyMs))
+		: QString());
 	update();
 }
 void ServerCard::paintEvent(QPaintEvent *e) {
@@ -119,15 +131,10 @@ void ServerCard::paintEvent(QPaintEvent *e) {
 	if (_online.has_value()) {
 		const auto dotSize = st::introServerCardStatusDot;
 		const auto dotLeft = inner.x();
-		const auto dotTop = inner.y() + inner.height()
-			- _joinButton->height()
-			- st::introServerCardPadding.bottom()
-			- _status->height() / 2
-			- dotSize / 2;
+		const auto dotTop = _status->y() + (_status->height() - dotSize) / 2;
 		p.setPen(Qt::NoPen);
 		p.setBrush(*_online ? st::windowActiveTextFg : st::attentionButtonFg);
-		p.drawEllipse(
-			QRectF(dotLeft, dotTop, dotSize, dotSize));
+		p.drawEllipse(QRectF(dotLeft, dotTop, dotSize, dotSize));
 	}
 	paintRipple(p, 0, 0);
 }
@@ -139,34 +146,48 @@ void ServerCard::updateGeometryInner() {
 	const auto padding = st::introServerCardPadding;
 	const auto inner = rect().marginsRemoved(padding);
 	const auto logoSize = st::introServerCardLogo;
+	const auto headerSkip = st::introServerCardHeaderSkip;
+	const auto footerSkip = st::introServerCardFooterSkip;
 	const auto joinHeight = _joinButton->height();
-	const auto statusDotSkip = st::introServerCardStatusDot + padding.left() / 2;
+	const auto joinWidth = st::introServerCardJoinButton.width;
 	_logo->move(inner.x(), inner.y());
-	const auto textLeft = inner.x() + logoSize + padding.left();
+	const auto textLeft = inner.x() + logoSize + headerSkip;
 	const auto textWidth = std::max(
-		inner.width() - logoSize - padding.left(),
+		inner.width() - logoSize - headerSkip,
 		1);
 	_name->resizeToWidth(textWidth);
 	_name->moveToLeft(textLeft, inner.y());
 	_endpoint->resizeToWidth(textWidth);
 	_endpoint->moveToLeft(
 		textLeft,
-		_name->y() + _name->height() + padding.top() / 3);
-	const auto contentTop = std::max(
+		_name->y() + _name->height() + padding.top() / 4);
+	const auto headerBottom = std::max(
 		_logo->y() + logoSize,
-		_endpoint->y() + _endpoint->height())
-		+ padding.top();
+		_endpoint->y() + _endpoint->height());
+	const auto footerHeight = joinHeight + footerSkip;
+	const auto descriptionTop = headerBottom + headerSkip;
+	const auto descriptionHeight = std::max(
+		inner.height() - (descriptionTop - inner.y()) - footerHeight - footerSkip,
+		st::introServerCardDescription.style.font->height * 2);
 	_description->resizeToWidth(inner.width());
-	_description->moveToLeft(inner.x(), contentTop);
-	const auto footerTop = inner.y() + inner.height() - joinHeight
-		- padding.bottom() / 2
-		- _status->height();
-	_status->resizeToWidth(inner.width() - statusDotSkip);
-	_status->moveToLeft(inner.x() + statusDotSkip, footerTop);
-	_joinButton->resize(inner.width(), joinHeight);
+	if (_description->height() > descriptionHeight) {
+		_description->resize(inner.width(), descriptionHeight);
+	}
+	_description->moveToLeft(inner.x(), descriptionTop);
+	_joinButton->resize(joinWidth, joinHeight);
 	_joinButton->moveToLeft(
-		inner.x(),
+		inner.x() + inner.width() - joinWidth,
 		inner.y() + inner.height() - joinHeight);
+	const auto statusLeft = inner.x() + st::introServerCardStatusDot + headerSkip / 2;
+	const auto statusWidth = std::max(
+		inner.width() - joinWidth - headerSkip - st::introServerCardStatusDot,
+		1);
+	_status->resizeToWidth(statusWidth);
+	_status->moveToLeft(
+		statusLeft,
+		inner.y() + inner.height() - joinHeight - _status->height() - padding.top() / 4);
+	_latency->resizeToWidth(statusWidth);
+	_latency->moveToLeft(statusLeft, _status->y() + _status->height());
 }
 } // namespace
 ServerSelectWidget::ServerSelectWidget(
@@ -245,24 +266,42 @@ void ServerSelectWidget::rebuildCards() {
 	const auto join = [=](const Owpengram::Server &server) {
 		joinServer(server);
 	};
+	const auto details = [=](const Owpengram::Server &server) {
+		Ui::show(Box<ServerDetailsBox>(server, join));
+	};
 	for (const auto &server : Owpengram::ListServers()) {
-		if (!server.valid() && !server.isOfficial) {
+		if (!server.valid()) {
 			continue;
 		}
-		const auto card = Ui::CreateChild<ServerCard>(_grid, server, join);
+		const auto card = Ui::CreateChild<ServerCard>(
+			_grid,
+			server,
+			join,
+			details);
 		card->show();
 		_cards.push_back(card);
-		Owpengram::CheckServerOnline(server, crl::guard(card, [=](bool online) {
+		Owpengram::CheckServerOnline(server, crl::guard(card, [=](
+				bool online,
+				int latencyMs) {
 			if (card) {
-				card->setOnline(online);
+				card->setOnline(online, latencyMs);
 			}
 		}));
 	}
 	updateCardsGeometry();
 }
 void ServerSelectWidget::joinServer(const Owpengram::Server &server) {
+	if (!server.valid()) {
+		Ui::Toast::Show(tr::lng_owpengram_server_invalid(tr::now));
+		return;
+	}
 	const auto weak = base::make_weak(this);
-	Owpengram::CheckServerOnline(server, crl::guard(weak, [=](bool online) {
+	Owpengram::CheckServerOnline(server, crl::guard(weak, [=](
+			bool online,
+			int latencyMs) {
+		if (!weak) {
+			return;
+		}
 		if (!online) {
 			Ui::show(Ui::MakeConfirmBox({
 				.text = tr::lng_owpengram_server_offline_confirm(),
@@ -277,8 +316,17 @@ void ServerSelectWidget::joinServer(const Owpengram::Server &server) {
 	}));
 }
 void ServerSelectWidget::proceedJoin(const Owpengram::Server &server) {
+	if (!server.valid()) {
+		Ui::Toast::Show(tr::lng_owpengram_server_invalid(tr::now));
+		return;
+	}
+	const auto weak = base::make_weak(this);
 	Owpengram::ApplyServerToAccount(&account(), server);
-	goNext<QrWidget>();
+	Owpengram::WaitForServerConnection(&account(), server, crl::guard(weak, [=] {
+		if (weak) {
+			goNext<QrWidget>();
+		}
+	}));
 }
 void ServerSelectWidget::resizeEvent(QResizeEvent *e) {
 	Step::resizeEvent(e);
@@ -289,13 +337,21 @@ void ServerSelectWidget::updateScrollGeometry() {
 	const auto scrollTop = coverDescriptionBottom() + st::introServerGridTop;
 	const auto scrollHeight = height() - scrollTop - st::introSettingsSkip;
 	const auto width = scrollWidth();
+	const auto cardSize = [&] {
+		if (_cards.empty()) {
+			return st::introServerCardMinWidth;
+		}
+		const auto columns = columnCount();
+		const auto spacing = st::introServerGridSpacing;
+		return (width - spacing * (columns - 1)) / columns;
+	}();
 	_scroll->setGeometry(
 		(this->width() - width) / 2,
 		scrollTop,
 		width,
 		std::max(
 			scrollHeight,
-			st::introServerCardHeight + st::introServerGridSpacing));
+			cardSize + st::introServerGridSpacing));
 	updateCardsGeometry();
 }
 void ServerSelectWidget::updateAddButtonGeometry() {
@@ -313,7 +369,7 @@ void ServerSelectWidget::updateCardsGeometry() {
 	const auto scrollAreaWidth = effectiveScrollWidth();
 	const auto cardWidth = (scrollAreaWidth - spacing * (columns - 1))
 		/ columns;
-	const auto cardHeight = st::introServerCardHeight;
+	const auto cardHeight = cardWidth;
 	const auto rows = (_cards.size() + columns - 1) / columns;
 	for (auto i = 0; i != _cards.size(); ++i) {
 		const auto card = _cards[i];

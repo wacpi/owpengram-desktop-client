@@ -197,13 +197,14 @@ introServerGridWidth: 880px;
 introServerGridMaxColumns: 3;
 introServerGridSpacing: 16px;
 introServerGridTop: 24px;
-introServerCardMinWidth: 280px;
-introServerCardHeight: 260px;
-introServerCardRadius: 12px;
+introServerCardMinWidth: 300px;
+introServerCardRadius: 18px;
 introServerCardRipple: defaultRippleAnimation;
-introServerCardLogo: 56px;
-introServerCardStatusDot: 8px;
+introServerCardLogo: 48px;
+introServerCardStatusDot: 10px;
 introServerCardPadding: margins(20px, 20px, 20px, 20px);
+introServerCardHeaderSkip: 12px;
+introServerCardFooterSkip: 12px;
 introServerCardName: FlatLabel(defaultFlatLabel) {
 	textFg: windowActiveTextFg;
 	style: TextStyle(defaultTextStyle) {
@@ -232,10 +233,17 @@ introServerCardStatusOnline: FlatLabel(defaultFlatLabel) {
 introServerCardStatusOffline: FlatLabel(introServerCardStatusOnline) {
 	textFg: attentionButtonFg;
 }
+introServerCardStatusLatency: FlatLabel(introServerCardStatusOnline) {
+	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(11px);
+	}
+}
 introServerCardJoinButton: RoundButton(introNextButton) {
-	height: 34px;
-	radius: 6px;
-	textTop: 8px;
+	width: 120px;
+	height: 36px;
+	radius: 8px;
+	textTop: 9px;
 	style: TextStyle(semiboldTextStyle) {
 		font: font(13px semibold);
 	}
