@@ -16,6 +16,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 class History;
 
+#include <optional>
+
 namespace Core {
 class FileLocation;
 } // namespace Core
@@ -44,6 +46,12 @@ namespace details {
 struct ReadSettingsContext;
 struct FileReadDescriptor;
 } // namespace details
+
+struct OwpengramServerSelection {
+	QString id;
+	QString host;
+	int port = 0;
+};
 
 class EncryptionKey;
 
@@ -86,6 +94,11 @@ public:
 	void writeSessionSettings();
 	void writeMtpData();
 	void writeMtpConfig();
+	void writeOwpengramServer(
+		const QString &id,
+		const QString &host,
+		int port);
+	[[nodiscard]] std::optional<OwpengramServerSelection> readOwpengramServer() const;
 
 	void registerDraftSource(
 		not_null<History*> history,

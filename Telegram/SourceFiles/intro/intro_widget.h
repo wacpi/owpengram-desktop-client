@@ -34,6 +34,13 @@ class SlideAnimation;
 } // namespace Window
 
 namespace Intro {
+
+enum class EnterPoint : uchar {
+	Start,
+	Phone,
+	Qr,
+};
+
 namespace details {
 
 enum class CallStatus {
@@ -72,6 +79,9 @@ struct Data {
 
 	Window::TermsLock termsLock;
 
+	EnterPoint enterPoint = EnterPoint::Start;
+	Fn<void()> requestNearestDc;
+
 	rpl::event_stream<> updated;
 
 };
@@ -90,12 +100,6 @@ enum class Animate {
 class Step;
 
 } // namespace details
-
-enum class EnterPoint : uchar {
-	Start,
-	Phone,
-	Qr,
-};
 
 class Widget
 	: public Ui::RpWidget

@@ -82,6 +82,8 @@ public:
 	[[nodiscard]] rpl::producer<> cdnConfigChanged() const;
 	void setFromList(const MTPVector<MTPDcOption> &options);
 	void addFromList(const MTPVector<MTPDcOption> &options);
+	void setOptionsLocked(bool locked);
+	[[nodiscard]] bool optionsLocked() const;
 	void addFromOther(DcOptions &&options);
 
 	[[nodiscard]] std::vector<DcId> configEnumDcIds() const;

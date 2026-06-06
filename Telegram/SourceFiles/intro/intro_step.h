@@ -98,6 +98,7 @@ public:
 
 	[[nodiscard]] int contentLeft() const;
 	[[nodiscard]] int contentTop() const;
+	[[nodiscard]] int coverDescriptionBottom() const;
 
 	void setErrorCentered(bool centered);
 	void showError(rpl::producer<QString> text);

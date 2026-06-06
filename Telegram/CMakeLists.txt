@@ -281,6 +281,8 @@ PRIVATE
     boxes/choose_filter_box.h
     boxes/connection_box.cpp
     boxes/connection_box.h
+    boxes/owpengram_add_server_box.cpp
+    boxes/owpengram_add_server_box.h
     boxes/create_poll_box.cpp
     boxes/create_poll_box.h
     boxes/delete_messages_box.cpp
@@ -1208,6 +1210,8 @@ PRIVATE
     intro/intro_qr.h
     intro/intro_signup.cpp
     intro/intro_signup.h
+    intro/intro_server_select.cpp
+    intro/intro_server_select.h
     intro/intro_start.cpp
     intro/intro_start.h
     intro/intro_step.cpp
@@ -1384,6 +1388,8 @@ PRIVATE
     mtproto/facade.h
     mtproto/mtp_instance.cpp
     mtproto/mtp_instance.h
+    owpengram/owpengram_servers.cpp
+    owpengram/owpengram_servers.h
     mtproto/sender.h
     mtproto/session.cpp
     mtproto/session.h

@@ -116,6 +116,9 @@ void ConfigLoader::enumerate() {
 }
 
 void ConfigLoader::refreshSpecialLoader() {
+	// patch by onysd - OwpenGram uses a static server, never bootstrap via Telegram DCs.
+	return;
+
 	if (_proxyEnabled || _instance->isKeysDestroyer()) {
 		_specialLoader.reset();
 		return;

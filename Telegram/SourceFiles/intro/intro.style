@@ -192,4 +192,66 @@ introQrStepsTop: 232px;
 introQrStepMargins: margins(20px, 8px, 0px, 0px);
 introQrSkipTop: 360px;
 introQrCenterSize: 44px;
+
+introServerGridWidth: 880px;
+introServerGridColumns: 2;
+introServerGridSpacing: 16px;
+introServerGridTop: 24px;
+introServerCardHeight: 220px;
+introServerCardRadius: 12px;
+introServerCardRipple: defaultRippleAnimation;
+introServerCardLogo: 48px;
+introServerCardPadding: margins(16px, 16px, 16px, 16px);
+introServerCardName: FlatLabel(defaultFlatLabel) {
+	textFg: windowActiveTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(15px semibold);
+	}
+}
+introServerCardEndpoint: FlatLabel(defaultFlatLabel) {
+	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(13px);
+	}
+}
+introServerCardDescription: FlatLabel(defaultFlatLabel) {
+	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(13px);
+		lineHeight: 18px;
+	}
+}
+introServerCardStatusOnline: FlatLabel(defaultFlatLabel) {
+	textFg: windowActiveTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: font(12px);
+	}
+}
+introServerCardStatusOffline: FlatLabel(introServerCardStatusOnline) {
+	textFg: attentionButtonFg;
+}
+introServerCardJoinButton: RoundButton(introNextButton) {
+	height: 34px;
+	radius: 6px;
+	textTop: 8px;
+	style: TextStyle(semiboldTextStyle) {
+		font: font(13px semibold);
+	}
+}
+introServerAddButton: RoundButton(defaultLightButton) {
+	height: 34px;
+	radius: 6px;
+	textTop: 8px;
+	style: TextStyle(semiboldTextStyle) {
+		font: font(13px semibold);
+	}
+}
+introServerPickLabel: FlatLabel(defaultFlatLabel) {
+	textFg: windowSubTextFg;
+	align: align(center);
+	style: TextStyle(defaultTextStyle) {
+		font: font(14px);
+	}
+}
+introServerPickTop: 16px;
 introQrPlane: icon {{ "intro_qr_plane", activeButtonFg }};

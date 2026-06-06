@@ -335,7 +335,20 @@ void DcOptions::constructAddOne(
 		int port,
 		const bytes::vector &secret) {
 	WriteLocker lock(this);
+	if (_immutable) {
+		return;
+	}
 	applyOneGuarded(BareDcId(id), flags, ip, port, secret);
+}
+
+void DcOptions::setOptionsLocked(bool locked) {
+	WriteLocker lock(this);
+	_immutable = locked;
+}
+
+bool DcOptions::optionsLocked() const {
+	ReadLocker lock(this);
+	return _immutable;
 }
 
 bool DcOptions::applyOneGuarded(

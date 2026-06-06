@@ -1211,6 +1211,43 @@ std::unique_ptr<MTP::Config> Account::readMtpConfig() {
 	return MTP::Config::FromSerialized(serialized);
 }
 
+void Account::writeOwpengramServer(
+		const QString &id,
+		const QString &host,
+		int port) {
+	Expects(_localKey != nullptr);
+
+	const auto size = Serialize::stringSize(id)
+		+ Serialize::stringSize(host)
+		+ sizeof(qint32);
+	FileWriteDescriptor file(u"owpengram_server"_q, _basePath);
+	EncryptedDescriptor data(size);
+	data.stream << id << host << qint32(port);
+	file.writeEncrypted(data, _localKey);
+}
+
+std::optional<OwpengramServerSelection> Account::readOwpengramServer() const {
+	if (!_localKey) {
+		return std::nullopt;
+	}
+	FileReadDescriptor file;
+	if (!ReadEncryptedFile(file, "owpengram_server", _basePath, _localKey)) {
+		return std::nullopt;
+	}
+	auto id = QString();
+	auto host = QString();
+	auto port = qint32(0);
+	file.stream >> id >> host >> port;
+	if (!CheckStreamStatus(file.stream) || id.isEmpty() || host.isEmpty() || port <= 0) {
+		return std::nullopt;
+	}
+	return OwpengramServerSelection{
+		.id = id,
+		.host = host,
+		.port = int(port),
+	};
+}
+
 template <typename Callback>
 void EnumerateDrafts(
 		const Data::HistoryDrafts &map,

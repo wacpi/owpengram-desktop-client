@@ -503,6 +503,13 @@ int Step::contentTop() const {
 	return result;
 }
 
+int Step::coverDescriptionBottom() const {
+	Ui::SendPendingMoveResizeEvents(_description->entity());
+	return contentTop()
+		+ st::introCoverDescriptionTop
+		+ _description->entity()->height();
+}
+
 void Step::setErrorCentered(bool centered) {
 	_errorCentered = centered;
 	_error.destroy();

@@ -1,0 +1,59 @@
+/*
+This file is part of Telegram Desktop,
+the official desktop application for the Telegram messaging service.
+
+For license and copyright information please follow this link:
+https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+*/
+#pragma once
+
+#include "base/flat_map.h"
+
+#include <optional>
+#include <vector>
+
+#include <QtCore/QString>
+
+namespace Main {
+class Account;
+} // namespace Main
+
+namespace Owpengram {
+
+inline constexpr auto kOfficialServerId = "official";
+
+struct Server {
+	QString id;
+	QString name;
+	QString host;
+	int port = 0;
+	QString description;
+	QString logoPath;
+	bool isOfficial = false;
+
+	[[nodiscard]] bool valid() const {
+		return !id.isEmpty() && !host.isEmpty() && port > 0;
+	}
+};
+
+[[nodiscard]] Server OfficialServer();
+[[nodiscard]] std::vector<Server> ListServers();
+[[nodiscard]] std::optional<Server> FindServer(const QString &id);
+[[nodiscard]] std::optional<Server> AddCustomServer(
+	const QString &name,
+	const QString &host,
+	int port,
+	const QString &description);
+[[nodiscard]] bool RemoveCustomServer(const QString &id);
+
+void ApplyServerToAccount(
+	not_null<Main::Account*> account,
+	const Server &server);
+
+void CheckServerOnline(
+	const Server &server,
+	Fn<void(bool online)> done);
+
+[[nodiscard]] QString DefaultLogoPath();
+
+} // namespace Owpengram
