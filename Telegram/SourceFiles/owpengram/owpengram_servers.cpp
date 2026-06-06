@@ -171,7 +171,7 @@ Server OfficialServer() {
 }
 
 QString FormatEndpoint(const Server &server) {
-	return u"IP: %1  Port: %2"_q.arg(
+	return u"IP: %1\nPort: %2"_q.arg(
 		server.host,
 		server.port > 0 ? QString::number(server.port) : u"—"_q);
 }

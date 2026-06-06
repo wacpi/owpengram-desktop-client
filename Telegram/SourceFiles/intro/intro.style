@@ -197,7 +197,8 @@ introServerGridWidth: 880px;
 introServerGridMaxColumns: 3;
 introServerGridSpacing: 16px;
 introServerGridTop: 24px;
-introServerCardMinWidth: 300px;
+introServerCardWidth: 276px;
+introServerCardHeight: 248px;
 introServerCardRadius: 18px;
 introServerCardRipple: defaultRippleAnimation;
 introServerCardLogo: 48px;
@@ -239,7 +240,7 @@ introServerCardStatusLatency: FlatLabel(introServerCardStatusOnline) {
 		font: font(11px);
 	}
 }
-introServerCardJoinButton: RoundButton(introNextButton) {
+introServerCardJoinButton: RoundButton(defaultLightButton) {
 	width: 120px;
 	height: 36px;
 	radius: 8px;

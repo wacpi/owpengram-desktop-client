@@ -50,7 +50,6 @@ private:
 	object_ptr<Ui::FlatLabel> _latency;
 	object_ptr<Ui::RoundButton> _joinButton;
 	std::optional<bool> _online;
-	int _latencyMs = -1;
 };
 ServerCard::ServerCard(
 	QWidget *parent,
@@ -84,7 +83,13 @@ ServerCard::ServerCard(
 		const auto top = (st::introServerCardLogo - image.height()) / 2;
 		p.drawPixmap(left, top, image);
 	}, _logo->lifetime());
-	for (const auto label : { _name.data(), _endpoint.data(), _description.data(), _status.data(), _latency.data() }) {
+	for (const auto label : {
+		_name.data(),
+		_endpoint.data(),
+		_description.data(),
+		_status.data(),
+		_latency.data(),
+	}) {
 		label->setAttribute(Qt::WA_TransparentForMouseEvents);
 	}
 	setClickedCallback([=] {
@@ -97,12 +102,11 @@ ServerCard::ServerCard(
 			_join(_server);
 		}
 	});
-	resize(st::introServerCardMinWidth, st::introServerCardMinWidth);
+	resize(st::introServerCardWidth, st::introServerCardHeight);
 	updateGeometryInner();
 }
 void ServerCard::setOnline(bool online, int latencyMs) {
 	_online = online;
-	_latencyMs = latencyMs;
 	_status->setText(online
 		? tr::lng_owpengram_server_online(tr::now)
 		: tr::lng_owpengram_server_offline(tr::now));
@@ -115,6 +119,7 @@ void ServerCard::setOnline(bool online, int latencyMs) {
 			lt_latency,
 			QString::number(latencyMs))
 		: QString());
+	updateGeometryInner();
 	update();
 }
 void ServerCard::paintEvent(QPaintEvent *e) {
@@ -130,7 +135,8 @@ void ServerCard::paintEvent(QPaintEvent *e) {
 	p.drawRoundedRect(inner, radius, radius);
 	if (_online.has_value()) {
 		const auto dotSize = st::introServerCardStatusDot;
-		const auto dotLeft = inner.x();
+		const auto skip = st::introServerCardHeaderSkip;
+		const auto dotLeft = inner.x() + skip / 2;
 		const auto dotTop = _status->y() + (_status->height() - dotSize) / 2;
 		p.setPen(Qt::NoPen);
 		p.setBrush(*_online ? st::windowActiveTextFg : st::attentionButtonFg);
@@ -146,28 +152,22 @@ void ServerCard::updateGeometryInner() {
 	const auto padding = st::introServerCardPadding;
 	const auto inner = rect().marginsRemoved(padding);
 	const auto logoSize = st::introServerCardLogo;
-	const auto headerSkip = st::introServerCardHeaderSkip;
-	const auto footerSkip = st::introServerCardFooterSkip;
-	const auto joinHeight = _joinButton->height();
+	const auto skip = st::introServerCardHeaderSkip;
 	const auto joinWidth = st::introServerCardJoinButton.width;
+	const auto joinHeight = st::introServerCardJoinButton.height;
 	_logo->move(inner.x(), inner.y());
-	const auto textLeft = inner.x() + logoSize + headerSkip;
-	const auto textWidth = std::max(
-		inner.width() - logoSize - headerSkip,
-		1);
-	_name->resizeToWidth(textWidth);
-	_name->moveToLeft(textLeft, inner.y());
-	_endpoint->resizeToWidth(textWidth);
-	_endpoint->moveToLeft(
-		textLeft,
-		_name->y() + _name->height() + padding.top() / 4);
-	const auto headerBottom = std::max(
-		_logo->y() + logoSize,
-		_endpoint->y() + _endpoint->height());
-	const auto footerHeight = joinHeight + footerSkip;
-	const auto descriptionTop = headerBottom + headerSkip;
+	const auto nameLeft = inner.x() + logoSize + skip;
+	const auto nameWidth = std::max(inner.right() - nameLeft + 1, 1);
+	_name->resizeToWidth(nameWidth);
+	_name->moveToLeft(
+		nameLeft,
+		inner.y() + (logoSize - _name->height()) / 2);
+	const auto headerBottom = inner.y() + logoSize;
+	_endpoint->resizeToWidth(inner.width());
+	_endpoint->moveToLeft(inner.x(), headerBottom + skip);
+	const auto descriptionTop = _endpoint->y() + _endpoint->height() + skip;
 	const auto descriptionHeight = std::max(
-		inner.height() - (descriptionTop - inner.y()) - footerHeight - footerSkip,
+		inner.bottom() - joinHeight - skip - descriptionTop + 1,
 		st::introServerCardDescription.style.font->height * 2);
 	_description->resizeToWidth(inner.width());
 	if (_description->height() > descriptionHeight) {
@@ -176,16 +176,17 @@ void ServerCard::updateGeometryInner() {
 	_description->moveToLeft(inner.x(), descriptionTop);
 	_joinButton->resize(joinWidth, joinHeight);
 	_joinButton->moveToLeft(
-		inner.x() + inner.width() - joinWidth,
-		inner.y() + inner.height() - joinHeight);
-	const auto statusLeft = inner.x() + st::introServerCardStatusDot + headerSkip / 2;
+		inner.right() - joinWidth + 1,
+		inner.bottom() - joinHeight + 1);
+	_joinButton->raise();
+	const auto statusLeft = inner.x() + st::introServerCardStatusDot + skip / 2;
 	const auto statusWidth = std::max(
-		inner.width() - joinWidth - headerSkip - st::introServerCardStatusDot,
+		inner.width() - joinWidth - skip * 2,
 		1);
 	_status->resizeToWidth(statusWidth);
 	_status->moveToLeft(
 		statusLeft,
-		inner.y() + inner.height() - joinHeight - _status->height() - padding.top() / 4);
+		inner.bottom() - joinHeight - _status->height() + 1);
 	_latency->resizeToWidth(statusWidth);
 	_latency->moveToLeft(statusLeft, _status->y() + _status->height());
 }
@@ -249,14 +250,17 @@ int ServerSelectWidget::effectiveScrollWidth() const {
 }
 int ServerSelectWidget::columnCount() const {
 	const auto width = effectiveScrollWidth();
-	const auto minWidth = st::introServerCardMinWidth;
 	const auto spacing = st::introServerGridSpacing;
 	const auto maxColumns = st::introServerGridMaxColumns;
-	if (width <= minWidth) {
-		return 1;
+	const auto cardWidth = st::introServerCardWidth;
+	const auto rowWidth = cardWidth * maxColumns + spacing * (maxColumns - 1);
+	if (width >= rowWidth) {
+		return maxColumns;
 	}
-	const auto columns = (width + spacing) / (minWidth + spacing);
-	return std::clamp(columns, 1, maxColumns);
+	return std::clamp(
+		std::max(1, (width + spacing) / (cardWidth + spacing)),
+		1,
+		maxColumns);
 }
 void ServerSelectWidget::rebuildCards() {
 	for (const auto card : _cards) {
@@ -337,14 +341,7 @@ void ServerSelectWidget::updateScrollGeometry() {
 	const auto scrollTop = coverDescriptionBottom() + st::introServerGridTop;
 	const auto scrollHeight = height() - scrollTop - st::introSettingsSkip;
 	const auto width = scrollWidth();
-	const auto cardSize = [&] {
-		if (_cards.empty()) {
-			return st::introServerCardMinWidth;
-		}
-		const auto columns = columnCount();
-		const auto spacing = st::introServerGridSpacing;
-		return (width - spacing * (columns - 1)) / columns;
-	}();
+	const auto cardSize = st::introServerCardHeight;
 	_scroll->setGeometry(
 		(this->width() - width) / 2,
 		scrollTop,
@@ -367,9 +364,8 @@ void ServerSelectWidget::updateCardsGeometry() {
 	const auto columns = columnCount();
 	const auto spacing = st::introServerGridSpacing;
 	const auto scrollAreaWidth = effectiveScrollWidth();
-	const auto cardWidth = (scrollAreaWidth - spacing * (columns - 1))
-		/ columns;
-	const auto cardHeight = cardWidth;
+	const auto cardWidth = st::introServerCardWidth;
+	const auto cardHeight = st::introServerCardHeight;
 	const auto rows = (_cards.size() + columns - 1) / columns;
 	for (auto i = 0; i != _cards.size(); ++i) {
 		const auto card = _cards[i];
