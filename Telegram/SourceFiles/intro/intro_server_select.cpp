@@ -154,9 +154,6 @@ void ServerCard::paintEvent(QPaintEvent *e) {
 	p.setPen(Qt::NoPen);
 	p.setBrush(st::boxBg);
 	p.drawRoundedRect(inner, radius, radius);
-	p.setPen(st::boxDividerFg);
-	p.setBrush(Qt::NoBrush);
-	p.drawRoundedRect(inner, radius, radius);
 	if (_online.has_value()) {
 		const auto dotSize = st::introServerCardStatusDot;
 		p.setPen(Qt::NoPen);

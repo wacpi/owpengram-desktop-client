@@ -149,12 +149,8 @@ void StatusBlock::setOnline(bool online, int latencyMs) {
 void StatusBlock::paintEvent(QPaintEvent *e) {
 	Painter p(this);
 	p.setClipRect(e->rect());
-	const auto padding = st::introServerDetailsStatusBlock;
-	const auto inner = rect().marginsRemoved(padding);
-	p.setPen(st::boxDividerFg);
-	p.setBrush(Qt::NoBrush);
-	p.drawRoundedRect(inner, st::introServerCardRadius / 2, st::introServerCardRadius / 2);
 	if (_online.has_value()) {
+		const auto padding = st::introServerDetailsStatusBlock;
 		const auto dotSize = st::introServerCardStatusDot;
 		const auto dotTop = padding.top()
 			+ (_status->height() - dotSize) / 2;
