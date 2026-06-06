@@ -12,6 +12,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "owpengram/owpengram_servers.h"
 
 namespace Ui {
+class LinkButton;
+class RpWidget;
 class VerticalLayout;
 } // namespace Ui
 
@@ -43,7 +45,9 @@ private:
 	[[nodiscard]] int listTop() const;
 	[[nodiscard]] int listWidth() const;
 
+	const not_null<Ui::RpWidget*> _panel;
 	const not_null<Ui::VerticalLayout*> _list;
+	Ui::LinkButton *_addLink = nullptr;
 	base::Timer _statusTimer;
 };
 
