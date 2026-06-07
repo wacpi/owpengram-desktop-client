@@ -193,12 +193,13 @@ introQrStepMargins: margins(20px, 8px, 0px, 0px);
 introQrSkipTop: 360px;
 introQrCenterSize: 44px;
 
-introServerListWidth: 380px;
+introServerListMaxWidth: 560px;
+introServerListMinWidth: 340px;
 introServerListTop: 12px;
-introServerListBottom: 16px;
-introServerListMinHeight: 340px;
+introServerListBottom: 20px;
+introServerListMinHeight: 80px;
 introServerListPanelRadius: 12px;
-introServerListPanelPadding: margins(10px, 12px, 10px, 12px);
+introServerListPanelPadding: margins(10px, 10px, 10px, 10px);
 introServerRowHeight: 68px;
 introServerRowPadding: margins(12px, 10px, 12px, 10px);
 introServerRowRadius: 10px;

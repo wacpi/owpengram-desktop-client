@@ -96,7 +96,7 @@ public:
 		-> rpl::producer<const style::RoundButton*>;
 	[[nodiscard]] virtual rpl::producer<> nextButtonFocusRequests() const;
 
-	[[nodiscard]] int contentLeft() const;
+	[[nodiscard]] virtual int contentLeft() const;
 	[[nodiscard]] int contentTop() const;
 	[[nodiscard]] int descriptionBottom() const;
 	[[nodiscard]] int coverDescriptionBottom() const;

@@ -15,6 +15,7 @@ namespace Ui {
 class RoundButton;
 class RpWidget;
 class ScrollArea;
+class FlatLabel;
 } // namespace Ui
 
 namespace Intro {
@@ -36,6 +37,9 @@ public:
 	}
 
 	void resizeEvent(QResizeEvent *e) override;
+	void showEvent(QShowEvent *e) override;
+
+	[[nodiscard]] int contentLeft() const override;
 
 private:
 	void rebuildList();
@@ -43,14 +47,15 @@ private:
 	void proceedJoin(const Owpengram::Server &server);
 	void updateListGeometry();
 	void updateRowsGeometry();
-	[[nodiscard]] int listTop() const;
 	[[nodiscard]] int listWidth() const;
 	[[nodiscard]] int listInnerWidth() const;
-	[[nodiscard]] int listPanelHeight() const;
+	[[nodiscard]] int listPanelHeight(int panelTop) const;
 
 	const not_null<Ui::RpWidget*> _panel;
 	const not_null<Ui::ScrollArea*> _scroll;
 	const not_null<Ui::RpWidget*> _rowsContainer;
+	const not_null<Ui::FlatLabel*> _ownTitle;
+	const not_null<Ui::FlatLabel*> _ownDescription;
 	object_ptr<Ui::RoundButton> _addServer;
 	base::Timer _statusTimer;
 };

@@ -317,13 +317,27 @@ ServerSelectWidget::ServerSelectWidget(
 , _panel(Ui::CreateChild<Ui::RpWidget>(this))
 , _scroll(Ui::CreateChild<Ui::ScrollArea>(_panel))
 , _rowsContainer(_scroll->setOwnedWidget(object_ptr<Ui::RpWidget>(_scroll)))
+, _ownTitle(
+	Ui::CreateChild<Ui::FlatLabel>(
+		this,
+		tr::lng_owpengram_server_selection_title(tr::now),
+		st::introTitle))
+, _ownDescription(
+	Ui::CreateChild<Ui::FlatLabel>(
+		this,
+		tr::lng_owpengram_server_selection_subtitle(tr::now),
+		st::introDescription))
 , _addServer(
 	this,
 	rpl::single(tr::lng_owpengram_server_add(tr::now)),
 	st::introServerAddButton)
 , _statusTimer([=] { rebuildList(); }) {
-	setTitleText(tr::lng_owpengram_server_selection_title());
-	setDescriptionText(tr::lng_owpengram_server_selection_subtitle());
+	// Use empty strings so Step's built-in title/description are invisible
+	setTitleText(rpl::single(QString()));
+	setDescriptionText(TextWithEntities());
+
+	_ownTitle->setAttribute(Qt::WA_TransparentForMouseEvents);
+	_ownDescription->setAttribute(Qt::WA_TransparentForMouseEvents);
 
 	_panel->setAttribute(Qt::WA_OpaquePaintEvent, false);
 	_panel->paintRequest(
@@ -375,12 +389,16 @@ rpl::producer<QString> ServerSelectWidget::nextButtonText() const {
 	return rpl::single(QString());
 }
 
-int ServerSelectWidget::listWidth() const {
-	return st::introServerListWidth;
+int ServerSelectWidget::contentLeft() const {
+	return (width() - listWidth()) / 2;
 }
 
-int ServerSelectWidget::listTop() const {
-	return contentTop() + st::introStepFieldTop;
+int ServerSelectWidget::listWidth() const {
+	const auto available = width() - 2 * st::introSettingsSkip;
+	return std::clamp(
+		available,
+		st::introServerListMinWidth,
+		st::introServerListMaxWidth);
 }
 
 int ServerSelectWidget::listInnerWidth() const {
@@ -388,10 +406,17 @@ int ServerSelectWidget::listInnerWidth() const {
 	return listWidth() - padding.left() - padding.right();
 }
 
-int ServerSelectWidget::listPanelHeight() const {
-	return std::max(
-		height() - listTop() - st::introServerListBottom,
-		st::introServerListMinHeight);
+int ServerSelectWidget::listPanelHeight(int panelTop) const {
+	const auto padding = st::introServerListPanelPadding;
+	const auto contentHeight = _rowsContainer->height();
+	const auto natural = contentHeight
+		+ padding.top()
+		+ padding.bottom();
+	const auto maxHeight = height() - panelTop - st::introServerListBottom;
+	return std::clamp(
+		natural,
+		st::introServerListMinHeight,
+		std::max(maxHeight, st::introServerListMinHeight));
 }
 
 void ServerSelectWidget::rebuildList() {
@@ -475,6 +500,11 @@ void ServerSelectWidget::resizeEvent(QResizeEvent *e) {
 	updateListGeometry();
 }
 
+void ServerSelectWidget::showEvent(QShowEvent *e) {
+	Step::showEvent(e);
+	updateListGeometry();
+}
+
 void ServerSelectWidget::updateRowsGeometry() {
 	const auto width = listInnerWidth();
 	const auto rowHeight = st::introServerRowHeight;
@@ -492,9 +522,25 @@ void ServerSelectWidget::updateRowsGeometry() {
 
 void ServerSelectWidget::updateListGeometry() {
 	const auto panelWidth = listWidth();
-	const auto panelHeight = listPanelHeight();
-	const auto left = contentLeft();
-	const auto top = listTop();
+	const auto left = (width() - panelWidth) / 2;
+
+	// Position our own title and description above the panel
+	const auto titleTop = contentTop() + st::introTitleTop;
+	_ownTitle->resizeToWidth(panelWidth);
+	_ownTitle->moveToLeft(left, titleTop);
+
+	const auto descTop = _ownTitle->y() + _ownTitle->height() + 6;
+	_ownDescription->resizeToWidth(panelWidth - _addServer->width() - 12);
+	_ownDescription->moveToLeft(left, descTop);
+
+	// Add Server button aligned to the right of the description row
+	_addServer->moveToLeft(
+		left + panelWidth - _addServer->width(),
+		descTop + (_ownDescription->height() - _addServer->height()) / 2);
+
+	// Panel starts right below description
+	const auto top = _ownDescription->y() + _ownDescription->height() + st::introServerListTop;
+	const auto panelHeight = listPanelHeight(top);
 	_panel->setGeometry(left, top, panelWidth, panelHeight);
 
 	const auto padding = st::introServerListPanelPadding;
@@ -503,10 +549,6 @@ void ServerSelectWidget::updateListGeometry() {
 		padding.top(),
 		panelWidth - padding.left() - padding.right(),
 		panelHeight - padding.top() - padding.bottom());
-
-	_addServer->moveToLeft(
-		left + panelWidth - _addServer->width(),
-		contentTop() + st::introDescriptionTop);
 
 	updateRowsGeometry();
 }
