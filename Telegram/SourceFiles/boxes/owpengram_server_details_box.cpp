@@ -215,7 +215,7 @@ private:
 StatusBlock::StatusBlock(QWidget *parent)
 : RpWidget(parent)
 , _status(this, tr::lng_owpengram_server_checking(tr::now), st::introServerCardStatusOnline)
-, _latency(this, QString(), st::introServerCardStatusLatency) {
+, _latency(this, QString(), st::introServerDetailsStatusLatency) {
 	const auto padding = st::introServerDetailsStatusBlock;
 	resize(parent->width(), padding.top() + _status->height() + padding.bottom());
 }
@@ -252,34 +252,29 @@ void StatusBlock::paintEvent(QPaintEvent *e) {
 	if (_online.has_value()) {
 		const auto padding = st::introServerDetailsStatusBlock;
 		const auto dotSize = st::introServerCardStatusDot;
+		const auto dotLeft = padding.left();
 		const auto dotTop = padding.top()
 			+ (_status->height() - dotSize) / 2;
 		p.setPen(Qt::NoPen);
 		p.setBrush(*_online ? st::windowActiveTextFg : st::attentionButtonFg);
-		p.drawEllipse(
-			QRectF(
-				padding.left() + st::introServerCardStatusDotSkip,
-				dotTop,
-				dotSize,
-				dotSize));
+		p.drawEllipse(QRectF(dotLeft, dotTop, dotSize, dotSize));
 	}
 }
 void StatusBlock::resizeEvent(QResizeEvent *e) {
 	RpWidget::resizeEvent(e);
 	const auto padding = st::introServerDetailsStatusBlock;
-	const auto statusLeft = padding.left()
-		+ st::introServerCardStatusDot
-		+ st::introServerCardStatusDotSkip;
+	const auto innerLeft = padding.left();
 	const auto innerWidth = width() - padding.left() - padding.right();
+	const auto statusLeft = innerLeft
+		+ st::introServerCardStatusDot
+		+ st::introServerDetailsStatusDotSkip;
 	const auto statusWidth = std::max(
 		innerWidth / 2,
 		1);
 	_status->resizeToWidth(statusWidth);
 	_status->moveToLeft(statusLeft, padding.top());
-	_latency->resizeToWidth(statusWidth);
-	_latency->moveToLeft(
-		width() - padding.right() - _latency->width(),
-		padding.top());
+	_latency->resizeToWidth(innerWidth);
+	_latency->moveToLeft(innerLeft, padding.top());
 	const auto blockHeight = padding.top()
 		+ _status->height()
 		+ padding.bottom();

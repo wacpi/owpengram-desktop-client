@@ -325,6 +325,10 @@ introServerDetailsDescription: FlatLabel(defaultFlatLabel) {
 }
 introServerDetailsStatusRadius: 8px;
 introServerDetailsStatusBlock: margins(12px, 14px, 12px, 14px);
+introServerDetailsStatusDotSkip: 6px;
+introServerDetailsStatusLatency: FlatLabel(introServerCardStatusLatency) {
+	align: align(right);
+}
 introServerAddSectionSkip: 16px;
 introServerAddDescriptionMinHeight: 72px;
 introQrPlane: icon {{ "intro_qr_plane", activeButtonFg }};
