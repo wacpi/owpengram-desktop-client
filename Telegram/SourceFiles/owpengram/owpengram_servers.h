@@ -18,6 +18,10 @@ namespace Main {
 class Account;
 } // namespace Main
 
+namespace MTP {
+class Config;
+} // namespace MTP
+
 namespace Owpengram {
 
 inline constexpr auto kOfficialServerId = "official";
@@ -49,6 +53,10 @@ struct Server {
 void ApplyServerToAccount(
 	not_null<Main::Account*> account,
 	const Server &server);
+
+void RestoreServerToConfig(
+	not_null<Main::Account*> account,
+	not_null<MTP::Config*> config);
 
 void CheckServerOnline(
 	const Server &server,

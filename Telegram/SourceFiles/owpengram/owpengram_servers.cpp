@@ -144,6 +144,47 @@ void WriteCustomServersJson(const QJsonArray &array) {
 	return result;
 }
 
+constexpr auto kMainDcId = MTP::Instance::Fields::kDefaultMainDc;
+
+void ApplyServerToDcOptions(
+		not_null<MTP::DcOptions*> dcOptions,
+		const Server &server) {
+	const auto flags = MTPDdcOption::Flag::f_static;
+	dcOptions->setOptionsLocked(false);
+	dcOptions->setFromList(MTP_vector<MTPDcOption>(1, MTP_dcOption(
+		MTP_flags(flags),
+		MTP_int(kMainDcId),
+		MTP_string(server.host),
+		MTP_int(server.port),
+		MTPbytes())));
+	dcOptions->setOptionsLocked(true);
+}
+
+[[nodiscard]] Server ServerFromStoredSelection(
+		const Storage::OwpengramServerSelection &selection) {
+	if (const auto known = FindServer(selection.id)) {
+		auto result = *known;
+		result.host = selection.host;
+		result.port = selection.port;
+		return result;
+	}
+	auto result = Server();
+	result.id = selection.id;
+	result.host = selection.host;
+	result.port = selection.port;
+	result.logoPath = DefaultLogoPath();
+	if (selection.id == QString::fromLatin1(kOfficialServerId)) {
+		const auto official = OfficialServer();
+		result.name = official.name;
+		result.description = official.description;
+		result.isOfficial = true;
+	} else {
+		result.name = selection.host;
+		result.isOfficial = false;
+	}
+	return result;
+}
+
 } // namespace
 
 QString DefaultLogoPath() {
@@ -239,33 +280,35 @@ bool RemoveCustomServer(const QString &id) {
 	return changed;
 }
 
+void RestoreServerToConfig(
+		not_null<Main::Account*> account,
+		not_null<MTP::Config*> config) {
+	const auto selection = account->local().readOwpengramServer();
+	if (!selection) {
+		return;
+	}
+	const auto server = ServerFromStoredSelection(*selection);
+	if (!server.valid()) {
+		return;
+	}
+	ApplyServerToDcOptions(&config->dcOptions(), server);
+}
+
 void ApplyServerToAccount(
 		not_null<Main::Account*> account,
 		const Server &server) {
 	Expects(server.valid());
 
-	const auto dcId = MTP::Instance::Fields::kDefaultMainDc;
-	const auto flags = MTPDdcOption::Flag::f_static;
 	auto &mtp = account->mtp();
-	auto &dcOptions = mtp.dcOptions();
-
 	mtp.restart();
-	dcOptions.setOptionsLocked(false);
-	dcOptions.setFromList(MTP_vector<MTPDcOption>(1, MTP_dcOption(
-		MTP_flags(flags),
-		MTP_int(dcId),
-		MTP_string(server.host),
-		MTP_int(server.port),
-		MTPbytes())));
-	dcOptions.setOptionsLocked(true);
-
-	mtp.setMainDcId(dcId);
+	ApplyServerToDcOptions(&mtp.dcOptions(), server);
+	mtp.setMainDcId(kMainDcId);
 	account->local().writeOwpengramServer(
 		server.id,
 		server.host,
 		server.port);
 	account->local().writeMtpConfig();
-	mtp.reInitConnection(dcId);
+	mtp.reInitConnection(kMainDcId);
 }
 
 void WaitForServerConnection(

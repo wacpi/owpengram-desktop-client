@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "main/main_domain.h"
 #include "main/main_session_settings.h"
+#include "owpengram/owpengram_servers.h"
 
 namespace Main {
 namespace {
@@ -414,6 +415,10 @@ void Account::setMtpAuthorization(const QByteArray &serialized) {
 
 void Account::startMtp(std::unique_ptr<MTP::Config> config) {
 	Expects(!_mtp);
+
+	if (config) {
+		Owpengram::RestoreServerToConfig(this, config.get());
+	}
 
 	auto fields = base::take(_mtpFields);
 	fields.config = std::move(config);
