@@ -113,7 +113,7 @@ mainMenuCoverNameTop: 84px;
 mainMenuCoverStatusLeft: mainMenuCoverNameLeft;
 mainMenuCoverStatusTop: 103px;
 mainMenuSkip: 6px;
-mainMenuFooterHeightMin: 80px;
+mainMenuFooterHeightMin: 98px;
 mainMenu: Menu(defaultMenu) {
 	itemFg: windowBoldFg;
 	itemFgOver: windowBoldFgOver;
@@ -158,6 +158,9 @@ mainMenuTelegramBottom: 38px;
 mainMenuVersionLabel: FlatLabel(mainMenuTelegramLabel) {
 	style: defaultTextStyle;
 }
+mainMenuServerLabel: FlatLabel(mainMenuVersionLabel) {
+}
+mainMenuServerSkip: 2px;
 mainMenuVersionBottom: 17px;
 
 mainMenuToggleSize: 6px;

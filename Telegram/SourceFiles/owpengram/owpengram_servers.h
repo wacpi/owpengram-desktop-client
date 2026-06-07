@@ -58,6 +58,11 @@ void RestoreServerToConfig(
 	not_null<Main::Account*> account,
 	not_null<MTP::Config*> config);
 
+void RestoreServerToAccount(not_null<Main::Account*> account);
+
+[[nodiscard]] Server CurrentServerForAccount(
+	not_null<Main::Account*> account);
+
 void CheckServerOnline(
 	const Server &server,
 	Fn<void(bool online, int latencyMs)> done);

@@ -73,6 +73,8 @@ private:
 	void setupSetEmojiStatus();
 	void setupArchive();
 	void setupMenu();
+	void setupServerFooter();
+	void updateServerFooter();
 	void updateControlsGeometry();
 	void updateInnerControlsGeometry();
 	void initResetScaleButton();
@@ -102,6 +104,7 @@ private:
 	not_null<Ui::VerticalLayout*> _menu;
 	not_null<Ui::RpWidget*> _footer;
 	not_null<Ui::FlatLabel*> _telegram;
+	not_null<Ui::FlatLabel*> _server;
 	not_null<Ui::FlatLabel*> _version;
 	QPointer<Ui::SettingsButton> _nightThemeToggle;
 	rpl::event_stream<bool> _nightThemeSwitches;

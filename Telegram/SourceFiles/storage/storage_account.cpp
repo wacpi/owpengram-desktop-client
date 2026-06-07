@@ -274,6 +274,7 @@ base::flat_set<QString> Account::collectGoodNames() const {
 		"map1",
 		"maps",
 		"configs",
+		"owpengram_servers",
 	};
 	const auto push = [&](FileKey key) {
 		if (!key) {
@@ -1220,7 +1221,7 @@ void Account::writeOwpengramServer(
 	const auto size = Serialize::stringSize(id)
 		+ Serialize::stringSize(host)
 		+ sizeof(qint32);
-	FileWriteDescriptor file(u"owpengram_server"_q, _basePath);
+	FileWriteDescriptor file(u"owpengram_server"_q, _basePath, true);
 	EncryptedDescriptor data(size);
 	data.stream << id << host << qint32(port);
 	file.writeEncrypted(data, _localKey);

@@ -160,6 +160,8 @@ void ApplyServerToDcOptions(
 	dcOptions->setOptionsLocked(true);
 }
 
+} // namespace
+
 [[nodiscard]] Server ServerFromStoredSelection(
 		const Storage::OwpengramServerSelection &selection) {
 	if (const auto known = FindServer(selection.id)) {
@@ -184,8 +186,6 @@ void ApplyServerToDcOptions(
 	}
 	return result;
 }
-
-} // namespace
 
 QString DefaultLogoPath() {
 	return u":/gui/art/logo_256.png"_q;
@@ -292,6 +292,34 @@ void RestoreServerToConfig(
 		return;
 	}
 	ApplyServerToDcOptions(&config->dcOptions(), server);
+}
+
+void RestoreServerToAccount(not_null<Main::Account*> account) {
+	const auto selection = account->local().readOwpengramServer();
+	if (!selection) {
+		return;
+	}
+	const auto server = ServerFromStoredSelection(*selection);
+	if (!server.valid()) {
+		return;
+	}
+	auto &mtp = account->mtp();
+	if (EndpointMatchesServer(&mtp, server)) {
+		return;
+	}
+	ApplyServerToDcOptions(&mtp.dcOptions(), server);
+	mtp.setMainDcId(kMainDcId);
+	mtp.reInitConnection(kMainDcId);
+}
+
+Server CurrentServerForAccount(not_null<Main::Account*> account) {
+	if (const auto selection = account->local().readOwpengramServer()) {
+		const auto server = ServerFromStoredSelection(*selection);
+		if (server.valid()) {
+			return server;
+		}
+	}
+	return OfficialServer();
 }
 
 void ApplyServerToAccount(

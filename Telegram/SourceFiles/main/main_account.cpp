@@ -428,6 +428,8 @@ void Account::startMtp(std::unique_ptr<MTP::Config> config) {
 		MTP::Instance::Mode::Normal,
 		std::move(fields));
 
+	Owpengram::RestoreServerToAccount(this);
+
 	const auto writingKeys = _mtp->lifetime().make_state<bool>(false);
 	_mtp->writeKeysRequests(
 	) | rpl::filter([=] {

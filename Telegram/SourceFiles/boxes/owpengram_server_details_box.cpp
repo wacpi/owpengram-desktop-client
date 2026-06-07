@@ -338,39 +338,41 @@ ServerDetailsBox::ServerDetailsBox(
 }
 void ServerDetailsBox::prepare() {
 	setTitle(tr::lng_owpengram_server_details_title());
-	if (!_server.isOfficial) {
-		const auto weak = base::make_weak(this);
-		addLeftButton(tr::lng_owpengram_server_delete(), [=] {
-			getDelegate()->show(Ui::MakeConfirmBox({
-				.text = tr::lng_owpengram_server_delete_confirm(
-					tr::now,
-					lt_name,
-					_server.name),
-				.confirmed = crl::guard(weak, [=](Fn<void()> close) {
-					if (!weak) {
-						close();
-						return;
-					}
-					if (Owpengram::RemoveCustomServer(_server.id)) {
-						if (_removed) {
-							_removed();
+	if (_connect) {
+		if (!_server.isOfficial) {
+			const auto weak = base::make_weak(this);
+			addLeftButton(tr::lng_owpengram_server_delete(), [=] {
+				getDelegate()->show(Ui::MakeConfirmBox({
+					.text = tr::lng_owpengram_server_delete_confirm(
+						tr::now,
+						lt_name,
+						_server.name),
+					.confirmed = crl::guard(weak, [=](Fn<void()> close) {
+						if (!weak) {
+							close();
+							return;
 						}
-						closeBox();
-					}
-					close();
-				}),
-				.confirmText = tr::lng_owpengram_server_delete(),
-				.confirmStyle = &st::attentionBoxButton,
-			}));
-		}, st::attentionBoxButton);
-	}
-	addButton(tr::lng_owpengram_server_join(), [=] {
-		if (_connect) {
-			_connect(_server);
+						if (Owpengram::RemoveCustomServer(_server.id)) {
+							if (_removed) {
+								_removed();
+							}
+							closeBox();
+						}
+						close();
+					}),
+					.confirmText = tr::lng_owpengram_server_delete(),
+					.confirmStyle = &st::attentionBoxButton,
+				}));
+			}, st::attentionBoxButton);
 		}
-		closeBox();
-	});
-	addButton(tr::lng_cancel(), [=] { closeBox(); });
+		addButton(tr::lng_owpengram_server_join(), [=] {
+			_connect(_server);
+			closeBox();
+		});
+		addButton(tr::lng_cancel(), [=] { closeBox(); });
+	} else {
+		addButton(tr::lng_close(), [=] { closeBox(); });
+	}
 	setDimensionsToContent(st::boxWidth, _content);
 	Owpengram::CheckServerOnline(_server, crl::guard(this, [=](
 			bool online,

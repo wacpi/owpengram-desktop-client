@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/event_filter.h"
 #include "base/qt_signal_producer.h"
 #include "boxes/about_box.h"
+#include "boxes/owpengram_server_details_box.h"
 #include "boxes/peer_list_controllers.h"
 #include "boxes/premium_preview_box.h"
 #include "calls/group/calls_group_common.h"
@@ -37,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_domain.h"
 #include "main/main_session.h"
 #include "main/main_session_settings.h"
+#include "owpengram/owpengram_servers.h"
 #include "mtproto/mtproto_config.h"
 #include "settings/sections/settings_advanced.h"
 #include "settings/sections/settings_calls.h"
@@ -342,6 +344,7 @@ MainMenu::MainMenu(
 , _footer(_inner->add(object_ptr<Ui::RpWidget>(_inner.get())))
 , _telegram(
 	Ui::CreateChild<Ui::FlatLabel>(_footer.get(), st::mainMenuTelegramLabel))
+, _server(Ui::CreateChild<Ui::FlatLabel>(_footer.get(), st::mainMenuServerLabel))
 , _version(AddVersionLabel(_footer)) {
 	setAttribute(Qt::WA_OpaquePaintEvent);
 
@@ -369,11 +372,21 @@ MainMenu::MainMenu(
 		}
 	});
 
-	_footer->heightValue(
-	) | rpl::on_next([=] {
-		_telegram->moveToLeft(st::mainMenuFooterLeft, _footer->height() - st::mainMenuTelegramBottom - _telegram->height());
-		_version->moveToLeft(st::mainMenuFooterLeft, _footer->height() - st::mainMenuVersionBottom - _version->height());
-	}, _footer->lifetime());
+	const auto layoutFooter = [=] {
+		const auto left = st::mainMenuFooterLeft;
+		const auto width = std::max(_footer->width() - left * 2, 1);
+		auto bottom = _footer->height() - st::mainMenuVersionBottom;
+		_version->resizeToWidth(width);
+		_version->moveToLeft(left, bottom - _version->height());
+		bottom -= _version->height() + st::mainMenuServerSkip;
+		_server->resizeToWidth(width);
+		_server->moveToLeft(left, bottom - _server->height());
+		bottom -= _server->height() + st::mainMenuServerSkip;
+		_telegram->resizeToWidth(width);
+		_telegram->moveToLeft(left, bottom - _telegram->height());
+	};
+	_footer->sizeValue(
+	) | rpl::on_next(layoutFooter, _footer->lifetime());
 
 	rpl::combine(
 		heightValue(),
@@ -407,6 +420,8 @@ MainMenu::MainMenu(
 		std::make_shared<LambdaClickHandler>([=] {
 			controller->show(Box(AboutBox));
 		}));
+
+	setupServerFooter();
 
 	rpl::combine(
 		_toggleAccounts->rightSkipValue(),
@@ -783,6 +798,36 @@ void MainMenu::setupMenu() {
 			_nightThemeSwitches.fire_copy(*darkMode);
 		}
 	}, _nightThemeToggle->lifetime());
+}
+
+void MainMenu::setupServerFooter() {
+	updateServerFooter();
+	_server->setLinksTrusted();
+	_server->setLink(
+		1,
+		std::make_shared<LambdaClickHandler>([=] {
+			const auto server = Owpengram::CurrentServerForAccount(
+				&_controller->session().account());
+			_controller->show(Box<ServerDetailsBox>(
+				server,
+				nullptr,
+				nullptr));
+		}));
+}
+
+void MainMenu::updateServerFooter() {
+	const auto server = Owpengram::CurrentServerForAccount(
+		&_controller->session().account());
+	_server->setMarkedText(tr::link(
+		tr::lng_owpengram_server_menu_footer(
+			tr::now,
+			lt_name,
+			server.name,
+			lt_host,
+			server.host,
+			lt_port,
+			QString::number(server.port)),
+		1));
 }
 
 void MainMenu::resizeEvent(QResizeEvent *e) {
