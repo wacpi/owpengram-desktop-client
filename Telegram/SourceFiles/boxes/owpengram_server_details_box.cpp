@@ -9,6 +9,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "base/weak_ptr.h"
 #include "lang/lang_keys.h"
+#include "owpengram/owpengram_servers.h"
+#include "ui/boxes/confirm_box.h"
 #include "ui/painter.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
@@ -191,9 +193,11 @@ void StatusBlock::resizeEvent(QResizeEvent *e) {
 ServerDetailsBox::ServerDetailsBox(
 	QWidget*,
 	Owpengram::Server server,
-	Fn<void(const Owpengram::Server&)> connect)
+	Fn<void(const Owpengram::Server&)> connect,
+	Fn<void()> removed)
 : _server(std::move(server))
 , _connect(std::move(connect))
+, _removed(std::move(removed))
 , _content(this) {
 	_content->add(
 		object_ptr<HeaderRow>(
@@ -227,6 +231,32 @@ ServerDetailsBox::ServerDetailsBox(
 }
 void ServerDetailsBox::prepare() {
 	setTitle(rpl::single(_server.name));
+	if (!_server.isOfficial) {
+		const auto weak = base::make_weak(this);
+		addLeftButton(tr::lng_owpengram_server_delete(), [=] {
+			getDelegate()->show(Ui::MakeConfirmBox({
+				.text = tr::lng_owpengram_server_delete_confirm(
+					tr::now,
+					lt_name,
+					_server.name),
+				.confirmed = crl::guard(weak, [=](Fn<void()> close) {
+					if (!weak) {
+						close();
+						return;
+					}
+					if (Owpengram::RemoveCustomServer(_server.id)) {
+						if (_removed) {
+							_removed();
+						}
+						closeBox();
+					}
+					close();
+				}),
+				.confirmText = tr::lng_owpengram_server_delete(),
+				.confirmStyle = &st::attentionBoxButton,
+			}));
+		}, st::attentionBoxButton);
+	}
 	addButton(tr::lng_owpengram_server_join(), [=] {
 		if (_connect) {
 			_connect(_server);

@@ -57,8 +57,6 @@ private:
 	object_ptr<Ui::RpWidget> _logo;
 	object_ptr<Ui::FlatLabel> _name;
 	object_ptr<Ui::FlatLabel> _endpoint;
-	Ui::RpWidget *_badgeBg = nullptr;
-	Ui::FlatLabel *_officialBadge = nullptr;
 	object_ptr<Ui::FlatLabel> _status;
 	object_ptr<Ui::FlatLabel> _latency;
 	object_ptr<Ui::RoundButton> _joinButton;
@@ -115,27 +113,6 @@ ServerRow::ServerRow(
 		p.setClipRegion(QRegion(0, 0, size, size, QRegion::Ellipse));
 		p.drawPixmap(left, top, image);
 	}, _logo->lifetime());
-
-	if (_server.isOfficial) {
-		_badgeBg = Ui::CreateChild<Ui::RpWidget>(this);
-		_badgeBg->setAttribute(Qt::WA_TransparentForMouseEvents);
-		_badgeBg->paintRequest(
-		) | rpl::on_next([=] {
-			auto p = QPainter(_badgeBg);
-			PainterHighQualityEnabler hq(p);
-			p.setPen(Qt::NoPen);
-			p.setBrush(st::windowBgOver);
-			p.drawRoundedRect(
-				_badgeBg->rect(),
-				_badgeBg->height() / 2,
-				_badgeBg->height() / 2);
-		}, _badgeBg->lifetime());
-		_officialBadge = Ui::CreateChild<Ui::FlatLabel>(
-			this,
-			tr::lng_owpengram_server_official_badge(tr::now),
-			st::introServerOfficialBadge);
-		_officialBadge->setAttribute(Qt::WA_TransparentForMouseEvents);
-	}
 
 	_name->setAttribute(Qt::WA_TransparentForMouseEvents);
 	_endpoint->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -225,31 +202,13 @@ void ServerRow::updateLayout() {
 	const auto infoRight = statusLeft - st::introServerRowJoinSkip;
 	const auto infoWidth = std::max(infoRight - infoLeft, 1);
 
-	const auto badgeSkip = 6;
-	auto badgeWidth = 0;
-	if (_officialBadge) {
-		_officialBadge->resizeToNaturalWidth(200);
-		badgeWidth = _officialBadge->width() + badgeSkip;
-		const auto badgeHeight = _officialBadge->height() + 4;
-		_badgeBg->resize(_officialBadge->width() + 14, badgeHeight);
-	}
-
-	const auto nameWidth = std::max(infoWidth - badgeWidth, 1);
-	_name->resizeToWidth(nameWidth);
+	_name->resizeToWidth(infoWidth);
 	_endpoint->resizeToWidth(infoWidth);
 
 	const auto textBlockHeight = _name->height() + 3 + _endpoint->height();
 	const auto textTop = (height() - textBlockHeight) / 2;
 	_name->moveToLeft(infoLeft, textTop);
 	_endpoint->moveToLeft(infoLeft, textTop + _name->height() + 3);
-
-	if (_officialBadge) {
-		const auto badgeLeft = infoLeft + nameWidth + badgeSkip;
-		_badgeBg->moveToLeft(badgeLeft, textTop + (_name->height() - _badgeBg->height()) / 2);
-		_officialBadge->moveToLeft(
-			badgeLeft + (_badgeBg->width() - _officialBadge->width()) / 2,
-			textTop + (_name->height() - _officialBadge->height()) / 2);
-	}
 
 	_logo->moveToLeft(
 		padding.left(),
@@ -265,19 +224,6 @@ void ServerRow::paintEvent(QPaintEvent *e) {
 	p.setPen(Qt::NoPen);
 	p.setBrush(isOver() ? st::windowBgOver : st::boxBg);
 	p.drawRoundedRect(rect(), radius, radius);
-
-	if (_server.isOfficial) {
-		auto pen = QPen(st::windowActiveTextFg);
-		pen.setWidthF(style::DevicePixelRatio());
-		p.setPen(pen);
-	} else {
-		p.setPen(st::boxDividerFg);
-	}
-	p.setBrush(Qt::NoBrush);
-	p.drawRoundedRect(
-		rect().marginsRemoved({ 1, 1, 1, 1 }),
-		radius - 1,
-		radius - 1);
 
 	if (_dotRect.isValid()) {
 		p.setPen(Qt::NoPen);
@@ -429,7 +375,15 @@ void ServerSelectWidget::rebuildList() {
 		joinServer(server);
 	};
 	const auto details = [=](const Owpengram::Server &server) {
-		Ui::show(Box<ServerDetailsBox>(server, join));
+		const auto weak = base::make_weak(this);
+		Ui::show(Box<ServerDetailsBox>(
+			server,
+			join,
+			crl::guard(weak, [=] {
+				if (weak) {
+					rebuildList();
+				}
+			})));
 	};
 
 	auto servers = std::vector<Owpengram::Server>();

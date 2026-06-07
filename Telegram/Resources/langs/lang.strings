@@ -7617,6 +7617,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_owpengram_server_details_port" = "Port";
 "lng_owpengram_server_details_description" = "Description";
 "lng_owpengram_server_details_status" = "Connection status";
+"lng_owpengram_server_delete" = "Delete";
+"lng_owpengram_server_delete_confirm" = "Remove server \"{name}\" from the list?";
 "lng_owpengram_server_checking" = "Checking…";
 "lng_owpengram_server_page_prev" = "◀";
 "lng_owpengram_server_page_next" = "▶";

@@ -22,7 +22,8 @@ public:
 	ServerDetailsBox(
 		QWidget*,
 		Owpengram::Server server,
-		Fn<void(const Owpengram::Server&)> connect);
+		Fn<void(const Owpengram::Server&)> connect,
+		Fn<void()> removed = nullptr);
 
 protected:
 	void prepare() override;
@@ -30,6 +31,7 @@ protected:
 private:
 	Owpengram::Server _server;
 	Fn<void(const Owpengram::Server&)> _connect;
+	Fn<void()> _removed;
 	object_ptr<Ui::VerticalLayout> _content;
 	QPointer<Ui::RpWidget> _statusBlock;
 
