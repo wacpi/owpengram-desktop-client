@@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/painter.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
+#include "ui/widgets/scroll_area.h"
 #include "ui/wrap/vertical_layout.h"
 #include "styles/style_intro.h"
 #include "styles/style_layers.h"
@@ -65,13 +66,18 @@ class DescriptionSection final : public Ui::RpWidget {
 public:
 	DescriptionSection(QWidget *parent, const QString &text);
 
+	[[nodiscard]] int resizeGetHeight(int newWidth) override;
+
 protected:
 	void resizeEvent(QResizeEvent *e) override;
 
 private:
+	[[nodiscard]] int layoutAtWidth(int newWidth);
+
 	object_ptr<Ui::FlatLabel> _title;
 	object_ptr<Ui::RpWidget> _box;
-	object_ptr<Ui::FlatLabel> _text;
+	const not_null<Ui::ScrollArea*> _scroll;
+	QPointer<Ui::FlatLabel> _text;
 };
 
 DescriptionSection::DescriptionSection(QWidget *parent, const QString &text)
@@ -81,9 +87,12 @@ DescriptionSection::DescriptionSection(QWidget *parent, const QString &text)
 	tr::lng_owpengram_server_details_description(tr::now),
 	st::introServerDetailsSectionTitle)
 , _box(this)
-, _text(this, text, st::introServerDetailsDescription) {
-	_text->setBreakEverywhere(true);
-	_box->setAttribute(Qt::WA_TransparentForMouseEvents);
+, _scroll(Ui::CreateChild<Ui::ScrollArea>(_box.get(), st::boxScroll))
+, _text(_scroll->setOwnedWidget(object_ptr<Ui::FlatLabel>(
+	_scroll.get(),
+	text,
+	st::introServerDetailsDescription))) {
+	_scroll->setAttribute(Qt::WA_OpaquePaintEvent, false);
 	_box->paintRequest(
 	) | rpl::on_next([=] {
 		auto p = QPainter(_box);
@@ -93,34 +102,51 @@ DescriptionSection::DescriptionSection(QWidget *parent, const QString &text)
 		const auto radius = st::introServerDetailsDescriptionRadius;
 		p.drawRoundedRect(_box->rect(), radius, radius);
 	}, _box->lifetime());
-	resize(parent->width(), _title->height());
+	setNaturalWidth(-1);
+}
+
+int DescriptionSection::resizeGetHeight(int newWidth) {
+	return layoutAtWidth(newWidth);
+}
+
+int DescriptionSection::layoutAtWidth(int newWidth) {
+	const auto titleSkip = st::introServerDetailsRowSkip;
+	const auto padding = st::introServerDetailsDescriptionPadding;
+	const auto innerWidth = std::max(
+		newWidth - padding.left() - padding.right(),
+		1);
+
+	_title->resizeToWidth(newWidth);
+	_title->moveToLeft(0, 0);
+	_text->resizeToWidth(innerWidth);
+
+	const auto boxTop = _title->height() + titleSkip;
+	const auto contentHeight = _text->height();
+	const auto naturalBoxHeight = contentHeight
+		+ padding.top()
+		+ padding.bottom();
+	const auto boxHeight = std::clamp(
+		naturalBoxHeight,
+		st::introServerDetailsDescriptionMinHeight,
+		st::introServerDetailsDescriptionMaxHeight);
+	const auto scrollHeight = boxHeight
+		- padding.top()
+		- padding.bottom();
+
+	_box->setGeometry(0, boxTop, newWidth, boxHeight);
+	_scroll->setGeometry(
+		padding.left(),
+		padding.top(),
+		innerWidth,
+		scrollHeight);
+	_scroll->updateBars();
+
+	return boxTop + boxHeight;
 }
 
 void DescriptionSection::resizeEvent(QResizeEvent *e) {
 	RpWidget::resizeEvent(e);
-	const auto titleSkip = st::introServerDetailsRowSkip;
-	const auto padding = st::introServerDetailsDescriptionPadding;
-	const auto boxWidth = width();
-	const auto textWidth = std::max(
-		boxWidth - padding.left() - padding.right(),
-		1);
-
-	_title->resizeToWidth(boxWidth);
-	_title->moveToLeft(0, 0);
-
-	const auto boxTop = _title->height() + titleSkip;
-
-	_text->resizeToWidth(textWidth);
-	const auto boxHeight = std::max(
-		_text->height() + padding.top() + padding.bottom(),
-		st::introServerDetailsDescriptionMinHeight);
-	_box->setGeometry(0, boxTop, boxWidth, boxHeight);
-	_text->moveToLeft(padding.left(), boxTop + padding.top());
-
-	const auto totalHeight = boxTop + boxHeight;
-	if (height() != totalHeight) {
-		resize(boxWidth, totalHeight);
-	}
+	(void)layoutAtWidth(width());
 }
 
 class HeaderRow final : public Ui::RpWidget {

@@ -314,8 +314,10 @@ introServerDetailsValue: FlatLabel(defaultFlatLabel) {
 introServerDetailsDescriptionRadius: 8px;
 introServerDetailsDescriptionPadding: margins(12px, 14px, 12px, 14px);
 introServerDetailsDescriptionMinHeight: 72px;
+introServerDetailsDescriptionMaxHeight: 120px;
 introServerDetailsDescription: FlatLabel(defaultFlatLabel) {
 	textFg: windowFg;
+	align: align(topleft);
 	style: TextStyle(defaultTextStyle) {
 		font: font(13px);
 		lineHeight: 18px;
