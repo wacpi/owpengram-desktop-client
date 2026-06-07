@@ -45,7 +45,10 @@ private:
 	void updateRowsGeometry();
 	[[nodiscard]] int listTop() const;
 	[[nodiscard]] int listWidth() const;
+	[[nodiscard]] int listInnerWidth() const;
+	[[nodiscard]] int listPanelHeight() const;
 
+	const not_null<Ui::RpWidget*> _panel;
 	const not_null<Ui::ScrollArea*> _scroll;
 	const not_null<Ui::RpWidget*> _rowsContainer;
 	object_ptr<Ui::RoundButton> _addServer;

@@ -314,7 +314,8 @@ ServerSelectWidget::ServerSelectWidget(
 	not_null<Main::Account*> account,
 	not_null<Data*> data)
 : Step(parent, account, data, false)
-, _scroll(Ui::CreateChild<Ui::ScrollArea>(this))
+, _panel(Ui::CreateChild<Ui::RpWidget>(this))
+, _scroll(Ui::CreateChild<Ui::ScrollArea>(_panel))
 , _rowsContainer(_scroll->setOwnedWidget(object_ptr<Ui::RpWidget>(_scroll)))
 , _addServer(
 	this,
@@ -323,6 +324,19 @@ ServerSelectWidget::ServerSelectWidget(
 , _statusTimer([=] { rebuildList(); }) {
 	setTitleText(tr::lng_owpengram_server_selection_title());
 	setDescriptionText(tr::lng_owpengram_server_selection_subtitle());
+
+	_panel->setAttribute(Qt::WA_OpaquePaintEvent, false);
+	_panel->paintRequest(
+	) | rpl::on_next([=] {
+		auto p = QPainter(_panel);
+		PainterHighQualityEnabler hq(p);
+		p.setPen(Qt::NoPen);
+		p.setBrush(st::windowBgOver);
+		const auto radius = st::introServerListPanelRadius;
+		p.drawRoundedRect(_panel->rect(), radius, radius);
+	}, _panel->lifetime());
+
+	_scroll->setAttribute(Qt::WA_OpaquePaintEvent, false);
 
 	_addServer->setClickedCallback([=] {
 		const auto weak = base::make_weak(this);
@@ -344,12 +358,9 @@ void ServerSelectWidget::finishInit() {
 void ServerSelectWidget::activate() {
 	Step::activate();
 	updateListGeometry();
-	if (!_rowsContainer->children().isEmpty()) {
-		rebuildList();
-	} else {
-		rebuildList();
-	}
+	rebuildList();
 	showChildren();
+	_panel->show();
 	_scroll->show();
 	_rowsContainer->show();
 	_addServer->show();
@@ -372,6 +383,17 @@ int ServerSelectWidget::listTop() const {
 	return contentTop() + st::introStepFieldTop;
 }
 
+int ServerSelectWidget::listInnerWidth() const {
+	const auto padding = st::introServerListPanelPadding;
+	return listWidth() - padding.left() - padding.right();
+}
+
+int ServerSelectWidget::listPanelHeight() const {
+	return std::max(
+		height() - listTop() - st::introServerListBottom,
+		st::introServerListMinHeight);
+}
+
 void ServerSelectWidget::rebuildList() {
 	const auto children = _rowsContainer->children();
 	for (auto i = children.size() - 1; i >= 0; --i) {
@@ -392,7 +414,7 @@ void ServerSelectWidget::rebuildList() {
 		}
 	}
 
-	const auto width = listWidth();
+	const auto width = listInnerWidth();
 	const auto rowHeight = st::introServerRowHeight;
 	const auto spacing = st::introServerRowSpacing;
 	auto y = 0;
@@ -454,7 +476,7 @@ void ServerSelectWidget::resizeEvent(QResizeEvent *e) {
 }
 
 void ServerSelectWidget::updateRowsGeometry() {
-	const auto width = listWidth();
+	const auto width = listInnerWidth();
 	const auto rowHeight = st::introServerRowHeight;
 	const auto spacing = st::introServerRowSpacing;
 	auto y = 0;
@@ -469,19 +491,21 @@ void ServerSelectWidget::updateRowsGeometry() {
 }
 
 void ServerSelectWidget::updateListGeometry() {
-	const auto width = listWidth();
+	const auto panelWidth = listWidth();
+	const auto panelHeight = listPanelHeight();
 	const auto left = contentLeft();
 	const auto top = listTop();
-	const auto bottom = contentTop()
-		+ st::introStepHeight
-		- st::introServerListBottom;
-	const auto scrollHeight = std::max(
-		bottom - top,
-		st::introServerListMinHeight);
-	_scroll->setGeometry(left, top, width, scrollHeight);
+	_panel->setGeometry(left, top, panelWidth, panelHeight);
+
+	const auto padding = st::introServerListPanelPadding;
+	_scroll->setGeometry(
+		padding.left(),
+		padding.top(),
+		panelWidth - padding.left() - padding.right(),
+		panelHeight - padding.top() - padding.bottom());
 
 	_addServer->moveToLeft(
-		left + width - _addServer->width(),
+		left + panelWidth - _addServer->width(),
 		contentTop() + st::introDescriptionTop);
 
 	updateRowsGeometry();
