@@ -52,6 +52,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "inline_bots/bot_attach_web_view.h"
 #include "chat_helpers/emoji_interactions.h"
 #include "lang/lang_cloud_manager.h"
+#include "owpengram/owpengram_servers.h"
 #include "history/history.h"
 #include "history/history_item.h"
 #include "history/history_item_helpers.h"
@@ -2620,15 +2621,20 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 
 	////// Cloud langpacks
 	case mtpc_updateLangPack: {
-		const auto &data = update.c_updateLangPack();
-		Lang::CurrentCloudManager().applyLangPackDifference(data.vdifference());
+		if (Owpengram::ShouldUseCloudLangPack()) {
+			const auto &data = update.c_updateLangPack();
+			Lang::CurrentCloudManager().applyLangPackDifference(
+				data.vdifference());
+		}
 	} break;
 
 	case mtpc_updateLangPackTooLong: {
-		const auto &data = update.c_updateLangPackTooLong();
-		const auto code = qs(data.vlang_code());
-		if (!code.isEmpty()) {
-			Lang::CurrentCloudManager().requestLangPackDifference(code);
+		if (Owpengram::ShouldUseCloudLangPack()) {
+			const auto &data = update.c_updateLangPackTooLong();
+			const auto code = qs(data.vlang_code());
+			if (!code.isEmpty()) {
+				Lang::CurrentCloudManager().requestLangPackDifference(code);
+			}
 		}
 	} break;
 

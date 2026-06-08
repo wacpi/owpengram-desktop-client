@@ -66,6 +66,8 @@ void RestoreServerToAccount(not_null<Main::Account*> account);
 [[nodiscard]] Server CurrentServerForAccount(
 	not_null<Main::Account*> account);
 
+[[nodiscard]] bool ShouldUseCloudLangPack();
+
 void CheckServerOnline(
 	const Server &server,
 	Fn<void(bool online, int latencyMs)> done);

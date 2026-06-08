@@ -354,6 +354,10 @@ Server CurrentServerForAccount(not_null<Main::Account*> account) {
 	return OfficialServer();
 }
 
+bool ShouldUseCloudLangPack() {
+	return false;
+}
+
 void ApplyServerToAccount(
 		not_null<Main::Account*> account,
 		const Server &server) {

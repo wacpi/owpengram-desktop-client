@@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/application.h"
 #include "main/main_account.h"
 #include "main/main_domain.h"
+#include "owpengram/owpengram_servers.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/wrap/padding_wrap.h"
 #include "ui/widgets/labels.h"
@@ -271,6 +272,9 @@ void CloudManager::setSuggestedLanguage(const QString &langCode) {
 }
 
 void CloudManager::setCurrentVersions(int version, int baseVersion) {
+	if (!Owpengram::ShouldUseCloudLangPack()) {
+		return;
+	}
 	const auto check = [&](Pack pack, int version) {
 		if (version > _langpack.version(pack) && !packRequestId(pack)) {
 			requestLangPackDifference(pack);
@@ -284,7 +288,7 @@ void CloudManager::applyLangPackDifference(
 		const MTPLangPackDifference &difference) {
 	Expects(difference.type() == mtpc_langPackDifference);
 
-	if (_langpack.isCustom()) {
+	if (_langpack.isCustom() || !Owpengram::ShouldUseCloudLangPack()) {
 		return;
 	}
 
