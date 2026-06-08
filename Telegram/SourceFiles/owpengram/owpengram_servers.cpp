@@ -163,7 +163,9 @@ void ApplyServerToDcOptions(
 		MTP_string(server.host),
 		MTP_int(server.port),
 		MTPbytes())));
-	dcOptions->setOptionsLocked(true);
+	if (!server.isTelegram) {
+		dcOptions->setOptionsLocked(true);
+	}
 }
 
 } // namespace
@@ -335,6 +337,9 @@ void RestoreServerToAccount(not_null<Main::Account*> account) {
 		return;
 	}
 	auto &mtp = account->mtp();
+	if (server.isTelegram) {
+		mtp.dcOptions().setOptionsLocked(false);
+	}
 	if (EndpointMatchesServer(&mtp, server)) {
 		return;
 	}
