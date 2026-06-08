@@ -17,20 +17,24 @@ $LibrariesMarker = Join-Path $LibrariesRoot 'Libraries\win64\local'
 
 $TestApiId = '17349'
 $TestApiHash = '344583e45741c457fe1862106095a5eb'
-$ApiCredentialsFile = Join-Path $RepoRoot 'api_credentials.local.ps1'
 
 $script:VcVars = $null
 
 function Get-ApiCredentials {
-    if (Test-Path $ApiCredentialsFile) {
-        . $ApiCredentialsFile
+    $candidates = @(
+        (Join-Path $RepoRoot 'api_credentials.local.ps1'),
+        (Join-Path (Split-Path $RepoRoot -Parent) 'api_credentials.local.ps1')
+    )
+    foreach ($file in $candidates) {
+        if (-not (Test-Path $file)) { continue }
+        . $file
         if ([string]::IsNullOrWhiteSpace($TDESKTOP_API_ID) -or [string]::IsNullOrWhiteSpace($TDESKTOP_API_HASH)) {
-            throw 'api_credentials.local.ps1 must set $TDESKTOP_API_ID and $TDESKTOP_API_HASH'
+            throw "$file must set `$TDESKTOP_API_ID and `$TDESKTOP_API_HASH"
         }
         return @{
             Id = $TDESKTOP_API_ID.Trim()
             Hash = $TDESKTOP_API_HASH.Trim()
-            Source = 'api_credentials.local.ps1'
+            Source = (Split-Path $file -Leaf)
         }
     }
 
