@@ -331,7 +331,24 @@ void RestoreServerToConfig(
 	if (!server.valid()) {
 		return;
 	}
-	ApplyServerToDcOptions(&config->dcOptions(), server);
+	if (server.isTelegram) {
+		// For Telegram accounts, restore RSA keys and lock state but do NOT
+		// overwrite the full saved DC option list (DC1-DC5 from the previous
+		// session). Using setFromList (overwrite) would replace them with only
+		// DC2, causing download failures for media on DC3/DC4/DC5 until
+		// help.getConfig responds (~1-3 seconds). Instead use addFromList so
+		// DC2 is present but no saved DCs are discarded.
+		config->dcOptions().setBuiltInPublicKeys(true);
+		config->dcOptions().setOptionsLocked(false);
+		config->dcOptions().addFromList(MTP_vector<MTPDcOption>(1, MTP_dcOption(
+			MTP_flags(MTPDdcOption::Flag::f_static),
+			MTP_int(MTP::DcId(2)),
+			MTP_string(server.host),
+			MTP_int(server.port),
+			MTPbytes())));
+	} else {
+		ApplyServerToDcOptions(&config->dcOptions(), server);
+	}
 }
 
 void RestoreServerToAccount(not_null<Main::Account*> account) {

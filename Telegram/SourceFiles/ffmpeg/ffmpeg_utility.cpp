@@ -372,10 +372,16 @@ void FormatDeleter::operator()(AVFormatContext *value) {
 }
 
 const AVCodec *FindDecoder(not_null<AVCodecContext*> context) {
-	// Force libvpx-vp9, because we need alpha channel support.
-	return (context->codec_id == AV_CODEC_ID_VP9)
-		? avcodec_find_decoder_by_name("libvpx-vp9")
-		: avcodec_find_decoder(context->codec_id);
+	if (context->codec_id == AV_CODEC_ID_VP9) {
+		// Prefer libvpx-vp9 for alpha channel support (video stickers with
+		// transparent backgrounds). Fall back to built-in vp9 decoder when
+		// libvpx was not compiled into this FFmpeg build.
+		if (const auto codec = avcodec_find_decoder_by_name("libvpx-vp9")) {
+			return codec;
+		}
+		return avcodec_find_decoder(AV_CODEC_ID_VP9);
+	}
+	return avcodec_find_decoder(context->codec_id);
 }
 
 CodecPointer MakeCodecPointer(CodecDescriptor descriptor) {
