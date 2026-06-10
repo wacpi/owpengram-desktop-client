@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "boxes/abstract_box.h"
 #include "boxes/owpengram_add_server_box.h"
+#include "boxes/owpengram_connecting_box.h"
 #include "boxes/owpengram_server_details_box.h"
 #include "lang/lang_keys.h"
 #include "main/main_account.h"
@@ -446,10 +447,22 @@ void ServerSelectWidget::proceedJoin(const Owpengram::Server &server) {
 		return;
 	}
 	const auto weak = base::make_weak(this);
+	// Block all input with a modal until the connection succeeds or times out.
+	const auto box = Ui::show(Box<ConnectingBox>());
 	Owpengram::ApplyServerToAccount(&account(), server);
-	Owpengram::WaitForServerConnection(&account(), server, crl::guard(weak, [=] {
-		if (weak) {
+	Owpengram::WaitForServerConnection(&account(), server, crl::guard(weak, [=](
+			bool ok) {
+		if (!weak) {
+			return;
+		}
+		if (ok) {
+			if (box) {
+				box->closeBox();
+			}
 			goNext<QrWidget>();
+		} else if (box) {
+			// Timed out: let the user dismiss the box but stay on this screen.
+			box->showFailed();
 		}
 	}));
 }

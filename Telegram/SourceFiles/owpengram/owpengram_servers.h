@@ -89,10 +89,12 @@ void CheckServerOnline(
 	const Server &server,
 	Fn<void(bool online, int latencyMs)> done);
 
+// Calls done(true) once the account's MTP is connected to the given server,
+// or done(false) after a 30s timeout.
 void WaitForServerConnection(
 	not_null<Main::Account*> account,
 	const Server &server,
-	Fn<void()> done);
+	Fn<void(bool ok)> done);
 
 [[nodiscard]] QString DefaultLogoPath();
 [[nodiscard]] QString TelegramLogoPath();

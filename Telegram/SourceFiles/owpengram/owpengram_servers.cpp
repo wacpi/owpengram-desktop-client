@@ -39,6 +39,7 @@ namespace {
 const auto kServersFile = u"owpengram_servers.json"_q;
 const auto kServerLogosDir = u"owpengram_server_logos"_q;
 constexpr auto kCheckTimeoutMs = 3000;
+constexpr auto kConnectTimeoutMs = 30000;
 const auto kOfficialDefaultHost = u"192.168.100.10"_q;
 constexpr auto kOfficialDefaultPort = 10443;
 const auto kTeamgramDefaultHost = u"43.155.11.190"_q;
@@ -593,7 +594,7 @@ void ApplyServerToAccount(
 void WaitForServerConnection(
 		not_null<Main::Account*> account,
 		const Server &server,
-		Fn<void()> done) {
+		Fn<void(bool ok)> done) {
 	const auto timer = std::make_shared<base::Timer>();
 	const auto started = crl::now();
 	timer->setCallback([=]() {
@@ -601,8 +602,11 @@ void WaitForServerConnection(
 		const auto dcId = mtp.mainDcId();
 		const auto connected = (mtp.dcstate(dcId) == MTP::ConnectedState)
 			&& EndpointMatchesServer(&mtp, server);
-		if (connected || crl::now() - started > 10000) {
-			done();
+		if (connected) {
+			done(true);
+			return;
+		} else if (crl::now() - started > kConnectTimeoutMs) {
+			done(false);
 			return;
 		}
 		timer->callOnce(100);
