@@ -173,7 +173,7 @@ HeaderRow::HeaderRow(
 	const auto logoSize = st::introServerCardLogo;
 	_logo->resize(logoSize, logoSize);
 	_logo->paintRequest(
-	) | rpl::on_next([=, path = logoPath] {
+	) | rpl::on_next([=, path = Owpengram::ResolveServerLogoPath(logoPath)] {
 		auto p = QPainter(_logo.data());
 		PainterHighQualityEnabler hq(p);
 		const auto circleMask = !isOfficial;

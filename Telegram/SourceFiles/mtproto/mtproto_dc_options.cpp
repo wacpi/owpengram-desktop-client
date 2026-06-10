@@ -229,6 +229,23 @@ void DcOptions::setBuiltInPublicKeys(bool telegram) {
 	}
 }
 
+void DcOptions::setPublicKeysFromPem(const QString &pem) {
+	WriteLocker lock(this);
+	_publicKeys.clear();
+	const auto trimmed = pem.trimmed();
+	if (trimmed.isEmpty()) {
+		return;
+	}
+	const auto utf8 = trimmed.toUtf8();
+	const auto data = bytes::make_span(utf8);
+	auto parsed = RSAPublicKey(data);
+	if (parsed.valid()) {
+		_publicKeys.emplace(parsed.fingerprint(), std::move(parsed));
+		return;
+	}
+	LOG(("MTP Error: could not read custom public RSA key."));
+}
+
 Environment DcOptions::environment() const {
 	return _environment;
 }

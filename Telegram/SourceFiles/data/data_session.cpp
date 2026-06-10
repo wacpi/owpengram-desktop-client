@@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/color_int_conversion.h"
 #include "export/export_manager.h"
 #include "export/view/export_view_panel_controller.h"
+#include "mtproto/mtp_user_normalize.h"
 #include "mtproto/mtproto_config.h"
 #include "window/notifications_manager.h"
 #include "history/history.h"
@@ -527,6 +528,9 @@ ChannelData *Session::channelLoaded(ChannelId id) const {
 }
 
 not_null<UserData*> Session::processUser(const MTPUser &data) {
+	if (data.type() == mtpc_user_layer216) {
+		return processUser(MTP::NormalizeUser(data));
+	}
 	const auto result = user(data.match([](const auto &data) {
 		return data.vid().v;
 	}));

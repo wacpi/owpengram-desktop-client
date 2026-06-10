@@ -331,5 +331,8 @@ introServerDetailsStatusLatency: FlatLabel(introServerCardStatusLatency) {
 	align: align(right);
 }
 introServerAddSectionSkip: 16px;
+introServerAddLogoSize: 64px;
+introServerAddLogoRowHeight: 64px;
+introServerAddLogoHintSkip: 12px;
 introServerAddDescriptionMinHeight: 72px;
 introQrPlane: icon {{ "intro_qr_plane", activeButtonFg }};

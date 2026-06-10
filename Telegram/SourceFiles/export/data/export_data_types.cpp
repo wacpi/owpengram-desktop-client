@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "export/data/export_data_types.h"
 
+#include "mtproto/mtp_user_normalize.h"
 #include "export/export_settings.h"
 #include "export/output/export_output_file.h"
 #include "base/base_file_utilities.h"
@@ -1080,7 +1081,7 @@ QString WriteImageThumb(
 
 ContactInfo ParseContactInfo(const MTPUser &data) {
 	auto result = ContactInfo();
-	data.match([&](const MTPDuser &data) {
+	MTP::MatchNormalizedUser(data, [&](const MTPDuser &data) {
 		result.userId = data.vid().v;
 		result.colorIndex = PeerColorIndex(result.userId);
 		if (const auto color = data.vcolor()) {
@@ -1119,8 +1120,9 @@ PeerId User::id() const {
 
 User ParseUser(const MTPUser &data) {
 	auto result = User();
-	result.info = ParseContactInfo(data);
-	data.match([&](const MTPDuser &data) {
+	const auto normalized = MTP::NormalizeUser(data);
+	result.info = ParseContactInfo(normalized);
+	MTP::MatchNormalizedUser(data, [&](const MTPDuser &data) {
 		result.bareId = data.vid().v;
 		result.colorIndex = PeerColorIndex(result.bareId);
 		if (const auto color = data.vcolor()) {
@@ -2397,10 +2399,11 @@ DialogsInfo ParseDialogsInfo(
 		const auto userId = single.match([&](const auto &data) {
 			return peerFromUser(data.vid());
 		});
+		const auto normalized = MTP::NormalizeUser(single);
 		if (userId != singleId
 			&& (singleId != 0
-				|| single.type() != mtpc_user
-				|| !single.c_user().is_self())) {
+				|| normalized.type() != mtpc_user
+				|| !normalized.c_user().is_self())) {
 			continue;
 		}
 		auto info = DialogInfoFromUser(ParseUser(single));

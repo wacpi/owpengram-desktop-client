@@ -7609,9 +7609,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_owpengram_server_official_name" = "OwpenGram";
 "lng_owpengram_server_official_description" = "Default OwpenGram server configured for this client.";
 "lng_owpengram_server_add_title" = "Add Server";
+"lng_owpengram_server_logo" = "Server icon (optional)";
+"lng_owpengram_server_logo_choose" = "Choose image";
+"lng_owpengram_server_logo_invalid" = "Could not load the selected image.";
 "lng_owpengram_server_name" = "Server name";
 "lng_owpengram_server_host" = "IP address";
 "lng_owpengram_server_port" = "Port";
+"lng_owpengram_server_rsa_key" = "RSA public key (optional)";
+"lng_owpengram_server_rsa_key_hint" = "PEM format. Leave empty to use the default OwpenGram key.";
+"lng_owpengram_server_rsa_key_invalid" = "Invalid RSA public key. Use PEM format (BEGIN PUBLIC KEY or BEGIN RSA PUBLIC KEY).";
 "lng_owpengram_server_description" = "Description";
 "lng_owpengram_server_endpoint" = "IP: {host}  Port: {port}";
 "lng_owpengram_server_offline_confirm" = "This server appears to be offline. Join anyway?";

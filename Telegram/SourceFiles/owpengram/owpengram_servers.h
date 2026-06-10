@@ -34,6 +34,7 @@ struct Server {
 	QString host;
 	int port = 0;
 	QString description;
+	QString rsaPublicKey;
 	QString logoPath;
 	bool isOfficial = false;
 	bool isTelegram = false;
@@ -52,7 +53,11 @@ struct Server {
 	const QString &name,
 	const QString &host,
 	int port,
-	const QString &description);
+	const QString &description,
+	const QString &rsaPublicKey = QString(),
+	const QString &logoSourcePath = QString());
+[[nodiscard]] bool IsValidRsaPublicKeyPem(const QString &pem);
+[[nodiscard]] QString ResolveServerLogoPath(const QString &logoPath);
 [[nodiscard]] bool RemoveCustomServer(const QString &id);
 [[nodiscard]] bool IsRemovableServer(const Server &server);
 

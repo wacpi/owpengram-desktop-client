@@ -7,14 +7,117 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/owpengram_add_server_box.h"
 
+#include "core/file_utilities.h"
 #include "lang/lang_keys.h"
+#include "ui/effects/ripple_animation.h"
+#include "ui/image/image.h"
+#include "ui/painter.h"
 #include "ui/toast/toast.h"
+#include "ui/widgets/buttons.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
 #include "ui/wrap/padding_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "styles/style_intro.h"
 #include "styles/style_layers.h"
+
+namespace {
+
+class ServerLogoPicker final : public Ui::RippleButton {
+public:
+	ServerLogoPicker(
+		QWidget *parent,
+		not_null<const QImage*> preview,
+		Fn<void()> choose);
+
+private:
+	void paintEvent(QPaintEvent *e) override;
+
+	const QImage *_preview = nullptr;
+
+};
+
+class ServerLogoRow final : public Ui::RpWidget {
+public:
+	ServerLogoRow(
+		QWidget *parent,
+		not_null<const QImage*> preview,
+		Fn<void()> choose);
+
+	void refreshPreview();
+
+protected:
+	void resizeEvent(QResizeEvent *e) override;
+
+private:
+	ServerLogoPicker *_picker = nullptr;
+	object_ptr<Ui::FlatLabel> _hint;
+
+};
+
+ServerLogoPicker::ServerLogoPicker(
+		QWidget *parent,
+		not_null<const QImage*> preview,
+		Fn<void()> choose)
+: RippleButton(parent, st::defaultRippleAnimation)
+, _preview(preview) {
+	const auto size = st::introServerAddLogoSize;
+	resize(size, size);
+	setClickedCallback(std::move(choose));
+}
+
+void ServerLogoPicker::paintEvent(QPaintEvent *e) {
+	auto p = Painter(this);
+	PainterHighQualityEnabler hq(p);
+	paintRipple(p, 0, 0);
+
+	const auto size = st::introServerAddLogoSize;
+	const auto pixmap = _preview->isNull()
+		? QPixmap(Owpengram::DefaultLogoPath()).scaled(
+			size,
+			size,
+			Qt::KeepAspectRatioByExpanding,
+			Qt::SmoothTransformation)
+		: QPixmap::fromImage(*_preview).scaled(
+			size,
+			size,
+			Qt::KeepAspectRatioByExpanding,
+			Qt::SmoothTransformation);
+	const auto left = (size - pixmap.width()) / 2;
+	const auto top = (size - pixmap.height()) / 2;
+
+	p.setPen(Qt::NoPen);
+	p.setBrush(st::boxBg);
+	p.drawEllipse(0, 0, size, size);
+	p.setClipRect(0, 0, size, size);
+	p.setClipRegion(QRegion(0, 0, size, size, QRegion::Ellipse));
+	p.drawPixmap(left, top, pixmap);
+}
+
+ServerLogoRow::ServerLogoRow(
+		QWidget *parent,
+		not_null<const QImage*> preview,
+		Fn<void()> choose)
+: RpWidget(parent)
+, _hint(this, tr::lng_owpengram_server_logo_choose(tr::now), st::boxLabel) {
+	_picker = Ui::CreateChild<ServerLogoPicker>(this, preview, std::move(choose));
+}
+
+void ServerLogoRow::refreshPreview() {
+	_picker->update();
+}
+
+void ServerLogoRow::resizeEvent(QResizeEvent *e) {
+	RpWidget::resizeEvent(e);
+	const auto logoSize = st::introServerAddLogoSize;
+	_picker->moveToLeft(0, (height() - logoSize) / 2);
+	const auto hintLeft = logoSize + st::introServerAddLogoHintSkip;
+	const auto hintWidth = std::max(width() - hintLeft, 1);
+	_hint->resizeToWidth(hintWidth);
+	_hint->moveToLeft(hintLeft, (height() - _hint->height()) / 2);
+}
+
+} // namespace
 
 AddServerBox::AddServerBox(
 	QWidget*,
@@ -28,6 +131,20 @@ AddServerBox::AddServerBox(
 			st::defaultInputField,
 			tr::lng_owpengram_server_name()),
 		st::boxRowPadding);
+
+	_content->add(
+		object_ptr<Ui::FixedHeightWidget>(
+			_content,
+			st::introServerAddSectionSkip));
+
+	addLabel(tr::lng_owpengram_server_logo(tr::now));
+	_logoRow = _content->add(
+		object_ptr<ServerLogoRow>(
+			_content,
+			&_logoPreview,
+			[=] { chooseLogo(); }),
+		st::boxRowPadding);
+	_logoRow->resize(_logoRow->width(), st::introServerAddLogoRowHeight);
 
 	_content->add(
 		object_ptr<Ui::FixedHeightWidget>(
@@ -48,6 +165,20 @@ AddServerBox::AddServerBox(
 			_content,
 			st::defaultInputField,
 			tr::lng_owpengram_server_port()),
+		st::boxRowPadding);
+
+	_content->add(
+		object_ptr<Ui::FixedHeightWidget>(
+			_content,
+			st::introServerAddSectionSkip));
+
+	addLabel(tr::lng_owpengram_server_rsa_key(tr::now));
+	_rsaPublicKey = _content->add(
+		object_ptr<Ui::InputField>(
+			_content,
+			st::defaultInputField,
+			Ui::InputField::Mode::MultiLine,
+			tr::lng_owpengram_server_rsa_key_hint()),
 		st::boxRowPadding);
 
 	_content->add(
@@ -87,10 +218,38 @@ void AddServerBox::addLabel(const QString &text) {
 		st::boxRowPadding);
 }
 
+void AddServerBox::chooseLogo() {
+	const auto callback = [=](FileDialog::OpenResult &&result) {
+		if (result.paths.isEmpty()) {
+			return;
+		}
+		const auto path = result.paths.front();
+		auto image = Images::Read({
+			.path = path,
+			.forceOpaque = true,
+		}).image;
+		if (image.isNull()) {
+			Ui::Toast::Show(tr::lng_owpengram_server_logo_invalid(tr::now));
+			return;
+		}
+		_logoSourcePath = path;
+		_logoPreview = std::move(image);
+		if (const auto row = _logoRow.data()) {
+			static_cast<ServerLogoRow*>(row)->refreshPreview();
+		}
+	};
+	FileDialog::GetOpenPath(
+		this,
+		tr::lng_owpengram_server_logo_choose(tr::now),
+		FileDialog::ImagesFilter(),
+		crl::guard(this, callback));
+}
+
 void AddServerBox::save() {
 	const auto name = _name->getLastText().trimmed();
 	auto host = _host->getLastText().trimmed();
 	auto port = _portField->getLastText().toInt();
+	const auto rsaPublicKey = _rsaPublicKey->getLastText().trimmed();
 	const auto description = _description->getLastText().trimmed();
 	if (host.contains(':')) {
 		const auto parts = host.split(':');
@@ -114,11 +273,18 @@ void AddServerBox::save() {
 		_portField->setFocusFast();
 		return;
 	}
+	if (!Owpengram::IsValidRsaPublicKeyPem(rsaPublicKey)) {
+		Ui::Toast::Show(tr::lng_owpengram_server_rsa_key_invalid(tr::now));
+		_rsaPublicKey->setFocusFast();
+		return;
+	}
 	if (const auto server = Owpengram::AddCustomServer(
 			name,
 			host,
 			port,
-			description)) {
+			description,
+			rsaPublicKey,
+			_logoSourcePath)) {
 		if (_done) {
 			_done(*server);
 		}

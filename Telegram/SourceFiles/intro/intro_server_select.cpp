@@ -96,7 +96,7 @@ ServerRow::ServerRow(
 	_logo->resize(size, size);
 	_logo->setAttribute(Qt::WA_TransparentForMouseEvents);
 	_logo->paintRequest(
-	) | rpl::on_next([=, path = _server.logoPath] {
+	) | rpl::on_next([=, path = Owpengram::ResolveServerLogoPath(_server.logoPath)] {
 		auto p = QPainter(_logo);
 		PainterHighQualityEnabler hq(p);
 		const auto circleMask = !_server.isOfficial;

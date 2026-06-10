@@ -33,7 +33,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/ui_utility.h"
 #include "data/data_user.h"
 #include "data/data_auto_download.h"
-#include "data/data_session.h"
+#include "mtproto/mtp_user_normalize.h"
 #include "data/data_chat_filters.h"
 #include "window/window_controller.h"
 #include "core/branding.h"
@@ -158,12 +158,12 @@ void Step::goReplace(Step *step, Animate animate) {
 
 void Step::finish(const MTPauth_Authorization &auth, QImage &&photo) {
 	auth.match([&](const MTPDauth_authorization &data) {
-		if (data.vuser().type() != mtpc_user
-			|| !data.vuser().c_user().is_self()) {
+		const auto user = MTP::NormalizeUser(data.vuser());
+		if (user.type() != mtpc_user || !user.c_user().is_self()) {
 			showError(rpl::single(Lang::Hard::ServerError())); // wtf?
 			return;
 		}
-		finish(data.vuser(), std::move(photo));
+		finish(user, std::move(photo));
 	}, [&](const MTPDauth_authorizationSignUpRequired &data) {
 		if (const auto terms = data.vterms_of_service()) {
 			terms->match([&](const MTPDhelp_termsOfService &data) {
@@ -179,9 +179,10 @@ void Step::finish(const MTPauth_Authorization &auth, QImage &&photo) {
 }
 
 void Step::finish(const MTPUser &user, QImage &&photo) {
-	if (user.type() != mtpc_user
-		|| !user.c_user().is_self()
-		|| !user.c_user().vid().v) {
+	const auto normalized = MTP::NormalizeUser(user);
+	if (normalized.type() != mtpc_user
+		|| !normalized.c_user().is_self()
+		|| !normalized.c_user().vid().v) {
 		// No idea what to do here.
 		// We could've reset intro and MTP, but this really should not happen.
 		Ui::show(Ui::MakeInformBox(
@@ -194,7 +195,7 @@ void Step::finish(const MTPUser &user, QImage &&photo) {
 		const auto raw = existing.get();
 		if (const auto session = raw->maybeSession()) {
 			if (raw->mtp().environment() == _account->mtp().environment()
-				&& UserId(user.c_user().vid()) == session->userId()) {
+				&& UserId(normalized.c_user().vid()) == session->userId()) {
 				_account->logOut();
 				crl::on_main(raw, [=] {
 					Core::App().domain().activate(raw);
@@ -206,10 +207,10 @@ void Step::finish(const MTPUser &user, QImage &&photo) {
 	}
 
 	api().request(MTPmessages_GetDialogFilters(
-	)).done([=](const MTPmessages_DialogFilters &result) {
+	)).done([=, user = normalized](const MTPmessages_DialogFilters &result) {
 		const auto &d = result.data();
 		createSession(user, photo, d.vfilters().v, d.is_tags_enabled());
-	}).fail([=] {
+	}).fail([=, user = normalized] {
 		createSession(user, photo, QVector<MTPDialogFilter>(), false);
 	}).send();
 }

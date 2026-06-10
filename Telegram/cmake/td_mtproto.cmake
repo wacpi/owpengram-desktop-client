@@ -50,6 +50,8 @@ PRIVATE
     mtproto/mtproto_proxy_data.h
     mtproto/mtproto_response.cpp
     mtproto/mtproto_response.h
+    mtproto/mtp_user_normalize.cpp
+    mtproto/mtp_user_normalize.h
 )
 
 target_include_directories(td_mtproto

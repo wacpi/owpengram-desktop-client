@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/bytes.h"
 
 #include <QtCore/QReadWriteLock>
+#include <QtCore/QString>
 #include <string>
 #include <vector>
 #include <map>
@@ -85,6 +86,7 @@ public:
 	void setOptionsLocked(bool locked);
 	[[nodiscard]] bool optionsLocked() const;
 	void setBuiltInPublicKeys(bool telegram);
+	void setPublicKeysFromPem(const QString &pem);
 	void addFromOther(DcOptions &&options);
 
 	[[nodiscard]] std::vector<DcId> configEnumDcIds() const;

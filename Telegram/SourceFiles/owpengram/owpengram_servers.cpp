@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_account.h"
 #include "mtproto/facade.h"
 #include "mtproto/mtproto_config.h"
+#include "mtproto/details/mtproto_rsa_public_key.h"
 #include "mtproto/mtproto_dc_options.h"
 #include "mtproto/facade.h"
 #include "mtproto/mtp_instance.h"
@@ -20,8 +21,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "storage/localstorage.h"
 #include "storage/storage_account.h"
 #include "base/qt/qt_common_adapters.h"
+#include "ui/image/image.h"
 
 #include <QtCore/QDir>
+#include <QtGui/QImage>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
 #include <QtCore/QJsonArray>
@@ -34,6 +37,7 @@ namespace Owpengram {
 namespace {
 
 const auto kServersFile = u"owpengram_servers.json"_q;
+const auto kServerLogosDir = u"owpengram_server_logos"_q;
 constexpr auto kCheckTimeoutMs = 3000;
 const auto kOfficialDefaultHost = u"192.168.100.10"_q;
 constexpr auto kOfficialDefaultPort = 10443;
@@ -87,6 +91,7 @@ ReadSavedServerSelection(not_null<Main::Account*> account) {
 	result.host = object.value(u"host"_q).toString();
 	result.port = object.value(u"port"_q).toInt();
 	result.description = object.value(u"description"_q).toString();
+	result.rsaPublicKey = object.value(u"rsaPublicKey"_q).toString();
 	result.logoPath = object.value(u"logoPath"_q).toString();
 	if (result.logoPath.isEmpty()) {
 		result.logoPath = DefaultLogoPath();
@@ -102,8 +107,12 @@ ReadSavedServerSelection(not_null<Main::Account*> account) {
 	object.insert(u"host"_q, server.host);
 	object.insert(u"port"_q, server.port);
 	object.insert(u"description"_q, server.description);
-	if (!server.logoPath.isEmpty()) {
+	if (!server.logoPath.isEmpty()
+		&& server.logoPath != DefaultLogoPath()) {
 		object.insert(u"logoPath"_q, server.logoPath);
+	}
+	if (!server.rsaPublicKey.isEmpty()) {
+		object.insert(u"rsaPublicKey"_q, server.rsaPublicKey);
 	}
 	return object;
 }
@@ -135,6 +144,55 @@ ReadSavedServerSelection(not_null<Main::Account*> account) {
 	return false;
 }
 
+[[nodiscard]] QString CustomServerLogosDirectory() {
+	return cWorkingDir() + u"tdata/"_q + kServerLogosDir;
+}
+
+[[nodiscard]] bool IsCustomServerLogoPath(const QString &logoPath) {
+	return logoPath.startsWith(kServerLogosDir);
+}
+
+[[nodiscard]] std::optional<QString> SaveCustomServerLogo(
+		const QString &serverId,
+		const QString &sourcePath) {
+	auto image = Images::Read({
+		.path = sourcePath,
+		.forceOpaque = true,
+	}).image;
+	if (image.isNull()) {
+		return std::nullopt;
+	}
+	const auto side = std::min(image.width(), image.height());
+	if (side <= 0) {
+		return std::nullopt;
+	}
+	image = image.copy(
+		(image.width() - side) / 2,
+		(image.height() - side) / 2,
+		side,
+		side);
+	image = image.scaled(
+		256,
+		256,
+		Qt::IgnoreAspectRatio,
+		Qt::SmoothTransformation);
+	const auto dir = CustomServerLogosDirectory();
+	QDir().mkpath(dir);
+	const auto relative = kServerLogosDir + u"/"_q + serverId + u".png"_q;
+	const auto fullPath = cWorkingDir() + u"tdata/"_q + relative;
+	if (!image.save(fullPath, "PNG")) {
+		return std::nullopt;
+	}
+	return relative;
+}
+
+void RemoveCustomServerLogoFile(const QString &logoPath) {
+	if (!IsCustomServerLogoPath(logoPath)) {
+		return;
+	}
+	QFile::remove(cWorkingDir() + u"tdata/"_q + logoPath);
+}
+
 [[nodiscard]] std::vector<Server> ReadCustomServers() {
 	auto result = std::vector<Server>();
 	for (const auto &value : ReadCustomServersJson()) {
@@ -156,7 +214,11 @@ void ApplyServerToDcOptions(
 	const auto flags = server.isTelegram
 		? MTPDdcOption::Flag::f_static
 		: (MTPDdcOption::Flag::f_static | MTPDdcOption::Flag::f_tcpo_only);
-	dcOptions->setBuiltInPublicKeys(server.isTelegram);
+	if (!server.rsaPublicKey.isEmpty()) {
+		dcOptions->setPublicKeysFromPem(server.rsaPublicKey);
+	} else {
+		dcOptions->setBuiltInPublicKeys(server.isTelegram);
+	}
 	dcOptions->setOptionsLocked(false);
 	dcOptions->setFromList(MTP_vector<MTPDcOption>(1, MTP_dcOption(
 		MTP_flags(flags),
@@ -286,7 +348,9 @@ std::optional<Server> AddCustomServer(
 		const QString &name,
 		const QString &host,
 		int port,
-		const QString &description) {
+		const QString &description,
+		const QString &rsaPublicKey,
+		const QString &logoSourcePath) {
 	if (name.trimmed().isEmpty() || host.trimmed().isEmpty() || port <= 0) {
 		return std::nullopt;
 	}
@@ -296,8 +360,14 @@ std::optional<Server> AddCustomServer(
 	server.host = host.trimmed();
 	server.port = port;
 	server.description = description.trimmed();
+	server.rsaPublicKey = rsaPublicKey.trimmed();
 	server.logoPath = DefaultLogoPath();
 	server.isOfficial = false;
+	if (!logoSourcePath.isEmpty()) {
+		if (const auto saved = SaveCustomServerLogo(server.id, logoSourcePath)) {
+			server.logoPath = *saved;
+		}
+	}
 
 	auto array = ReadCustomServersJson();
 	array.push_back(ServerToJson(server));
@@ -325,6 +395,8 @@ bool RemoveCustomServer(const QString &id) {
 			continue;
 		}
 		if (array.at(i).toObject().value(u"id"_q).toString() == id) {
+			const auto logo = array.at(i).toObject().value(u"logoPath"_q).toString();
+			RemoveCustomServerLogoFile(logo);
 			array.removeAt(i);
 			changed = true;
 			break;
@@ -400,7 +472,6 @@ void RestoreServerToAccount(not_null<Main::Account*> account) {
 		return;
 	}
 	const auto dcId = MainDcIdForServer(server);
-	mtp.dcOptions().setBuiltInPublicKeys(false);
 	ApplyServerToDcOptions(&mtp.dcOptions(), server);
 	mtp.setMainDcId(dcId);
 	mtp.reInitConnection(dcId);
@@ -418,6 +489,25 @@ Server CurrentServerForAccount(not_null<Main::Account*> account) {
 
 bool ShouldUseCloudLangPack() {
 	return false;
+}
+
+QString ResolveServerLogoPath(const QString &logoPath) {
+	if (logoPath.isEmpty()) {
+		return DefaultLogoPath();
+	}
+	if (logoPath.startsWith(u":/"_q) || QFileInfo(logoPath).isAbsolute()) {
+		return logoPath;
+	}
+	return cWorkingDir() + u"tdata/"_q + logoPath;
+}
+
+bool IsValidRsaPublicKeyPem(const QString &pem) {
+	const auto trimmed = pem.trimmed();
+	if (trimmed.isEmpty()) {
+		return true;
+	}
+	const auto utf8 = trimmed.toUtf8();
+	return MTP::details::RSAPublicKey(bytes::make_span(utf8)).valid();
 }
 
 void ApplyServerToAccount(
