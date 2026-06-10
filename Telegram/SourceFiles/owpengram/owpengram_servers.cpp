@@ -45,9 +45,23 @@ constexpr auto kOfficialDefaultPort = 10443;
 const auto kTeamgramDefaultHost = u"43.155.11.190"_q;
 constexpr auto kTeamgramDefaultPort = 10443;
 
-// RSA public key of the owpengram server (the binary itself now ships the real
-// Telegram keys, so each self-hosted profile carries its own key here).
+// Default RSA public keys for the built-in self-hosted servers (the binary now
+// ships the real Telegram keys, so each self-hosted profile carries its own key).
+// Replace kTeamgramRsaPublicKey with Teamgram's real key if it differs.
 const auto kOfficialRsaPublicKey = u"\
+-----BEGIN RSA PUBLIC KEY-----\n\
+MIIBCgKCAQEAvKLEOWTzt9Hn3/9Kdp/RdHcEhzmd8xXeLSpHIIzaXTLJDw8BhJy1\n\
+jR/iqeG8Je5yrtVabqMSkA6ltIpgylH///FojMsX1BHu4EPYOXQgB0qOi6kr08iX\n\
+ZIH9/iOPQOWDsL+Lt8gDG0xBy+sPe/2ZHdzKMjX6O9B4sOsxjFrk5qDoWDrioJor\n\
+AJ7eFAfPpOBf2w73ohXudSrJE0lbQ8pCWNpMY8cB9i8r+WBitcvouLDAvmtnTX7a\n\
+khoDzmKgpJBYliAY4qA73v7u5UIepE8QgV0jCOhxJCPubP8dg+/PlLLVKyxU5Cdi\n\
+QtZj2EMy4s9xlNKzX8XezE0MHEa6bQpnFwIDAQAB\n\
+-----END RSA PUBLIC KEY-----"_q;
+
+// Teamgram currently shares the same default self-hosted key (this is what it
+// used before each profile carried its own key). Swap in Teamgram's real public
+// key here if its server uses a different one.
+const auto kTeamgramRsaPublicKey = u"\
 -----BEGIN RSA PUBLIC KEY-----\n\
 MIIBCgKCAQEAvKLEOWTzt9Hn3/9Kdp/RdHcEhzmd8xXeLSpHIIzaXTLJDw8BhJy1\n\
 jR/iqeG8Je5yrtVabqMSkA6ltIpgylH///FojMsX1BHu4EPYOXQgB0qOi6kr08iX\n\
@@ -283,7 +297,10 @@ void ApplyServerToDcOptions(
 	if (!server.rsaPublicKey.isEmpty()) {
 		dcOptions->setPublicKeysFromPem(server.rsaPublicKey);
 	} else {
-		dcOptions->setBuiltInPublicKeys(false);
+		// Single-server backends are NOT Telegram, so never fall back to the
+		// built-in Telegram RSA keys (the server's fingerprint would never match).
+		// Use the shared self-hosted default key instead.
+		dcOptions->setPublicKeysFromPem(kOfficialRsaPublicKey);
 	}
 	dcOptions->setFromList(MTP_vector<MTPDcOption>(std::move(list)));
 	dcOptions->setOptionsLocked(true);
@@ -356,6 +373,7 @@ Server TeamgramServer() {
 	result.port = kTeamgramDefaultPort;
 	result.logoPath = TeamgramLogoPath();
 	result.isOfficial = true;
+	result.rsaPublicKey = kTeamgramRsaPublicKey;
 	result.multiDc = false;
 	result.mainDcId = 2;
 	return result;
