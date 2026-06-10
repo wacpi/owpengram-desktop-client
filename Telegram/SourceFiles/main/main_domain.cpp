@@ -18,7 +18,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_user.h"
 #include "mtproto/mtproto_config.h"
 #include "mtproto/mtproto_dc_options.h"
-#include "owpengram/owpengram_servers.h"
 #include "storage/storage_domain.h"
 #include "storage/storage_account.h"
 #include "storage/localstorage.h"
@@ -465,7 +464,6 @@ void Domain::activate(not_null<Main::Account*> account) {
 	}
 	_accountToActivate = i->index;
 	_active = account.get();
-	Owpengram::RestoreServerToAccount(account);
 	_active.current()->sessionValue(
 	) | rpl::start_to_stream(_activeSessions, _activeLifetime);
 

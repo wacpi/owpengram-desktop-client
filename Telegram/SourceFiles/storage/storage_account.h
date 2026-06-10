@@ -99,6 +99,13 @@ public:
 		const QString &host,
 		int port);
 	[[nodiscard]] std::optional<OwpengramServerSelection> readOwpengramServer() const;
+	[[nodiscard]] QString owpengramServerFallbackPath() const;
+	void writeOwpengramServerFallback(
+		const QString &id,
+		const QString &host,
+		int port);
+	[[nodiscard]] auto readOwpengramServerFallback() const
+		-> std::optional<OwpengramServerSelection>;
 
 	void registerDraftSource(
 		not_null<History*> history,

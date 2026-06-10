@@ -39,6 +39,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "webview/webview_interface.h"
 #include "window/themes/window_theme.h"
 
+#include <QtCore/QDir>
+#include <QtCore/QFile>
+#include <QtCore/QFileInfo>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
+
 namespace Storage {
 namespace {
 
@@ -1216,8 +1222,10 @@ void Account::writeOwpengramServer(
 		const QString &id,
 		const QString &host,
 		int port) {
-	Expects(_localKey != nullptr);
-
+	writeOwpengramServerFallback(id, host, port);
+	if (!_localKey) {
+		return;
+	}
 	const auto size = Serialize::stringSize(id)
 		+ Serialize::stringSize(host)
 		+ sizeof(qint32);
@@ -1227,26 +1235,72 @@ void Account::writeOwpengramServer(
 	file.writeEncrypted(data, _localKey);
 }
 
-std::optional<OwpengramServerSelection> Account::readOwpengramServer() const {
-	if (!_localKey) {
+QString Account::owpengramServerFallbackPath() const {
+	return _basePath + u"owpengram_server.json"_q;
+}
+
+void Account::writeOwpengramServerFallback(
+		const QString &id,
+		const QString &host,
+		int port) {
+	const auto path = owpengramServerFallbackPath();
+	QDir().mkpath(QFileInfo(path).absolutePath());
+	QFile file(path);
+	if (!file.open(QIODevice::WriteOnly)) {
+		return;
+	}
+	auto object = QJsonObject();
+	object.insert(u"id"_q, id);
+	object.insert(u"host"_q, host);
+	object.insert(u"port"_q, port);
+	file.write(QJsonDocument(object).toJson(QJsonDocument::Compact));
+}
+
+std::optional<OwpengramServerSelection>
+Account::readOwpengramServerFallback() const {
+	QFile file(owpengramServerFallbackPath());
+	if (!file.open(QIODevice::ReadOnly)) {
 		return std::nullopt;
 	}
-	FileReadDescriptor file;
-	if (!ReadEncryptedFile(file, "owpengram_server", _basePath, _localKey)) {
+	const auto document = QJsonDocument::fromJson(file.readAll());
+	if (!document.isObject()) {
 		return std::nullopt;
 	}
-	auto id = QString();
-	auto host = QString();
-	auto port = qint32(0);
-	file.stream >> id >> host >> port;
-	if (!CheckStreamStatus(file.stream) || id.isEmpty() || host.isEmpty() || port <= 0) {
+	const auto object = document.object();
+	const auto id = object.value(u"id"_q).toString();
+	const auto host = object.value(u"host"_q).toString();
+	const auto port = object.value(u"port"_q).toInt();
+	if (id.isEmpty() || host.isEmpty() || port <= 0) {
 		return std::nullopt;
 	}
 	return OwpengramServerSelection{
 		.id = id,
 		.host = host,
-		.port = int(port),
+		.port = port,
 	};
+}
+
+std::optional<OwpengramServerSelection> Account::readOwpengramServer() const {
+	if (_localKey) {
+		FileReadDescriptor file;
+		if (ReadEncryptedFile(file, "owpengram_server", _basePath, _localKey)) {
+			auto id = QString();
+			auto host = QString();
+			auto port = qint32(0);
+			file.stream >> id >> host >> port;
+			if (CheckStreamStatus(file.stream)
+				&& !id.isEmpty()
+				&& !host.isEmpty()
+				&& port > 0) {
+				return OwpengramServerSelection{
+					.id = id,
+					.host = host,
+					.port = int(port),
+				};
+			}
+		}
+	}
+	return readOwpengramServerFallback();
 }
 
 template <typename Callback>

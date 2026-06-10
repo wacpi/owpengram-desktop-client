@@ -34,19 +34,14 @@ namespace Owpengram {
 namespace {
 
 const auto kServersFile = u"owpengram_servers.json"_q;
-const auto kServerSelectionFallbackFile = u"owpengram_server_selection.json"_q;
 constexpr auto kCheckTimeoutMs = 3000;
-const auto kOfficialDefaultHost = u"127.0.0.1"_q;
+const auto kOfficialDefaultHost = u"192.168.100.10"_q;
 constexpr auto kOfficialDefaultPort = 10443;
 const auto kTeamgramDefaultHost = u"43.155.11.190"_q;
 constexpr auto kTeamgramDefaultPort = 10443;
 
 [[nodiscard]] QString ServersFilePath() {
 	return cWorkingDir() + u"tdata/"_q + kServersFile;
-}
-
-[[nodiscard]] QString ServerSelectionFallbackPath() {
-	return cWorkingDir() + u"tdata/"_q + kServerSelectionFallbackFile;
 }
 
 [[nodiscard]] QJsonArray ReadCustomServersJson() {
@@ -72,51 +67,9 @@ void WriteCustomServersJson(const QJsonArray &array) {
 	file.write(QJsonDocument(array).toJson(QJsonDocument::Compact));
 }
 
-void WriteServerSelectionFallback(const Server &server) {
-	const auto path = ServerSelectionFallbackPath();
-	QDir().mkpath(QFileInfo(path).absolutePath());
-	QFile file(path);
-	if (!file.open(QIODevice::WriteOnly)) {
-		return;
-	}
-	auto object = QJsonObject();
-	object.insert(u"id"_q, server.id);
-	object.insert(u"host"_q, server.host);
-	object.insert(u"port"_q, server.port);
-	file.write(QJsonDocument(object).toJson(QJsonDocument::Compact));
-}
-
-[[nodiscard]] std::optional<Storage::OwpengramServerSelection>
-ReadServerSelectionFallback() {
-	const auto path = ServerSelectionFallbackPath();
-	QFile file(path);
-	if (!file.open(QIODevice::ReadOnly)) {
-		return std::nullopt;
-	}
-	const auto document = QJsonDocument::fromJson(file.readAll());
-	if (!document.isObject()) {
-		return std::nullopt;
-	}
-	const auto object = document.object();
-	const auto id = object.value(u"id"_q).toString();
-	const auto host = object.value(u"host"_q).toString();
-	const auto port = object.value(u"port"_q).toInt();
-	if (id.isEmpty() || host.isEmpty() || port <= 0) {
-		return std::nullopt;
-	}
-	return Storage::OwpengramServerSelection{
-		.id = id,
-		.host = host,
-		.port = port,
-	};
-}
-
 [[nodiscard]] std::optional<Storage::OwpengramServerSelection>
 ReadSavedServerSelection(not_null<Main::Account*> account) {
-	if (const auto encrypted = account->local().readOwpengramServer()) {
-		return encrypted;
-	}
-	return ReadServerSelectionFallback();
+	return account->local().readOwpengramServer();
 }
 
 [[nodiscard]] bool SelectionEqualsServer(
@@ -476,15 +429,14 @@ void ApplyServerToAccount(
 	if (previous && SelectionEqualsServer(*previous, server)) {
 		return;
 	}
-	WriteServerSelectionFallback(server);
-	if (account->local().peekLegacyLocalKey()) {
-		account->local().writeOwpengramServer(
-			server.id,
-			server.host,
-			server.port);
-	}
+	account->local().writeOwpengramServer(
+		server.id,
+		server.host,
+		server.port);
 	account->resetAuthorizationKeysForServerSwitch();
-	account->local().writeMtpConfig();
+	if (account->local().peekLegacyLocalKey()) {
+		account->local().writeMtpConfig();
+	}
 }
 
 void WaitForServerConnection(
