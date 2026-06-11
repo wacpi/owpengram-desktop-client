@@ -540,37 +540,42 @@ void BuildPremiumSection(SectionBuilder &builder) {
 }
 
 void BuildHelpSection(SectionBuilder &builder) {
-	builder.addDivider();
-	builder.addSkip();
-
 	const auto controller = builder.controller();
-	builder.addButton({
-		.id = u"main/faq"_q,
-		.title = tr::lng_settings_faq(),
-		.icon = { &st::menuIconFaq },
-		.onClick = [=] { OpenFaq(controller); },
-		.keywords = { u"help"_q, u"support"_q, u"questions"_q },
-	});
 
-	builder.addButton({
-		.id = u"main/features"_q,
-		.title = tr::lng_settings_features(),
-		.icon = { &st::menuIconEmojiObjects },
-		.onClick = [] {
-			UrlClickHandler::Open(tr::lng_telegram_features_url(tr::now));
-		},
-		.keywords = { u"tips"_q, u"tutorial"_q },
-	});
+	// The Telegram help links (FAQ / Features / Ask a Question) only make sense
+	// for accounts on the official Telegram server; hide them on custom servers.
+	if (::Main::Domain::AccountIsTelegram(&controller->session().account())) {
+		builder.addDivider();
+		builder.addSkip();
 
-	builder.addButton({
-		.id = u"main/ask-question"_q,
-		.title = tr::lng_settings_ask_question(),
-		.icon = { &st::menuIconDiscussion },
-		.onClick = [=] { OpenAskQuestionConfirm(controller); },
-		.keywords = { u"contact"_q, u"feedback"_q },
-	});
+		builder.addButton({
+			.id = u"main/faq"_q,
+			.title = tr::lng_settings_faq(),
+			.icon = { &st::menuIconFaq },
+			.onClick = [=] { OpenFaq(controller); },
+			.keywords = { u"help"_q, u"support"_q, u"questions"_q },
+		});
 
-	builder.addSkip();
+		builder.addButton({
+			.id = u"main/features"_q,
+			.title = tr::lng_settings_features(),
+			.icon = { &st::menuIconEmojiObjects },
+			.onClick = [] {
+				UrlClickHandler::Open(tr::lng_telegram_features_url(tr::now));
+			},
+			.keywords = { u"tips"_q, u"tutorial"_q },
+		});
+
+		builder.addButton({
+			.id = u"main/ask-question"_q,
+			.title = tr::lng_settings_ask_question(),
+			.icon = { &st::menuIconDiscussion },
+			.onClick = [=] { OpenAskQuestionConfirm(controller); },
+			.keywords = { u"contact"_q, u"feedback"_q },
+		});
+
+		builder.addSkip();
+	}
 
 	// Separate block: a link to the OwpenGram project on GitHub.
 	builder.addDivider();
