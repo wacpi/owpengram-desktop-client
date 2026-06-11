@@ -8,14 +8,16 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #pragma once
 
 #include "ui/layers/box_content.h"
+#include "ui/wrap/slide_wrap.h"
 #include "owpengram/owpengram_servers.h"
 
 #include <QtGui/QImage>
+#include <memory>
 
 namespace Ui {
 class InputField;
 class VerticalLayout;
-class Checkbox;
+class RadiobuttonGroup;
 } // namespace Ui
 
 class AddServerBox : public Ui::BoxContent {
@@ -31,19 +33,21 @@ protected:
 private:
 	void save();
 	void chooseLogo();
-	void addLabel(const QString &text);
 
 	Fn<void(Owpengram::Server)> _done;
 	object_ptr<Ui::VerticalLayout> _content;
-	QPointer<Ui::RpWidget> _logoRow;
-	QString _logoSourcePath;
-	QImage _logoPreview;
-	QPointer<Ui::InputField> _name;
-	QPointer<Ui::InputField> _host;
-	QPointer<Ui::InputField> _portField;
-	QPointer<Ui::InputField> _rsaPublicKey;
-	QPointer<Ui::InputField> _description;
-	QPointer<Ui::Checkbox> _multiDc;
-	QPointer<Ui::InputField> _mainDcField;
 
+	QImage _logoPreview;
+	QString _logoSourcePath;
+	Fn<void()> _refreshAvatar;
+
+	Ui::InputField *_name = nullptr;
+	Ui::InputField *_description = nullptr;
+	Ui::InputField *_host = nullptr;
+	Ui::InputField *_portField = nullptr;
+	Ui::InputField *_rsaPublicKey = nullptr;
+	Ui::InputField *_mainDcField = nullptr;
+
+	std::shared_ptr<Ui::RadiobuttonGroup> _typeGroup;
+	Ui::SlideWrap<Ui::VerticalLayout> *_mainDcWrap = nullptr;
 };

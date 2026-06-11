@@ -17,12 +17,18 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
-#include "ui/wrap/padding_wrap.h"
+#include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "styles/style_intro.h"
 #include "styles/style_layers.h"
 
 namespace {
+
+constexpr auto kBoxWidth = 700;
+constexpr auto kPortFieldWidth = 90;
+constexpr auto kAvatarGap = 14;
+
+// ── Avatar circle picker ──────────────────────────────────────────────────
 
 class ServerLogoPicker final : public Ui::RippleButton {
 public:
@@ -31,29 +37,12 @@ public:
 		not_null<const QImage*> preview,
 		Fn<void()> choose);
 
+	void refresh() { update(); }
+
 private:
 	void paintEvent(QPaintEvent *e) override;
 
 	const QImage *_preview = nullptr;
-
-};
-
-class ServerLogoRow final : public Ui::RpWidget {
-public:
-	ServerLogoRow(
-		QWidget *parent,
-		not_null<const QImage*> preview,
-		Fn<void()> choose);
-
-	void refreshPreview();
-
-protected:
-	void resizeEvent(QResizeEvent *e) override;
-
-private:
-	ServerLogoPicker *_picker = nullptr;
-	object_ptr<Ui::FlatLabel> _hint;
-
 };
 
 ServerLogoPicker::ServerLogoPicker(
@@ -62,8 +51,8 @@ ServerLogoPicker::ServerLogoPicker(
 		Fn<void()> choose)
 : RippleButton(parent, st::defaultRippleAnimation)
 , _preview(preview) {
-	const auto size = st::introServerAddLogoSize;
-	resize(size, size);
+	const auto sz = st::introServerAddLogoSize;
+	resize(sz, sz);
 	setClickedCallback(std::move(choose));
 }
 
@@ -72,108 +61,245 @@ void ServerLogoPicker::paintEvent(QPaintEvent *e) {
 	PainterHighQualityEnabler hq(p);
 	paintRipple(p, 0, 0);
 
-	const auto size = st::introServerAddLogoSize;
+	const auto sz = st::introServerAddLogoSize;
 	const auto pixmap = _preview->isNull()
 		? QPixmap(Owpengram::DefaultLogoPath()).scaled(
-			size,
-			size,
+			sz, sz,
 			Qt::KeepAspectRatioByExpanding,
 			Qt::SmoothTransformation)
 		: QPixmap::fromImage(*_preview).scaled(
-			size,
-			size,
+			sz, sz,
 			Qt::KeepAspectRatioByExpanding,
 			Qt::SmoothTransformation);
-	const auto left = (size - pixmap.width()) / 2;
-	const auto top = (size - pixmap.height()) / 2;
 
 	p.setPen(Qt::NoPen);
 	p.setBrush(st::boxBg);
-	p.drawEllipse(0, 0, size, size);
-	p.setClipRect(0, 0, size, size);
-	p.setClipRegion(QRegion(0, 0, size, size, QRegion::Ellipse));
-	p.drawPixmap(left, top, pixmap);
+	p.drawEllipse(0, 0, sz, sz);
+	p.setClipRegion(QRegion(0, 0, sz, sz, QRegion::Ellipse));
+	p.drawPixmap((sz - pixmap.width()) / 2, (sz - pixmap.height()) / 2, pixmap);
 }
 
-ServerLogoRow::ServerLogoRow(
+// ── Top row: [avatar] [name / description] ────────────────────────────────
+// Floating placeholders inside InputField act as labels — no separate FlatLabel.
+
+class AvatarNameDescRow final : public Ui::RpWidget {
+public:
+	AvatarNameDescRow(
+		QWidget *parent,
+		not_null<const QImage*> preview,
+		Fn<void()> choose);
+
+	[[nodiscard]] Ui::InputField *name() const { return _name; }
+	[[nodiscard]] Ui::InputField *desc() const { return _desc; }
+	void refreshPreview() { _picker->refresh(); }
+
+protected:
+	int resizeGetHeight(int newWidth) override;
+
+private:
+	ServerLogoPicker *_picker = nullptr;
+	Ui::InputField   *_name   = nullptr;
+	Ui::InputField   *_desc   = nullptr;
+};
+
+AvatarNameDescRow::AvatarNameDescRow(
 		QWidget *parent,
 		not_null<const QImage*> preview,
 		Fn<void()> choose)
-: RpWidget(parent)
-, _hint(this, tr::lng_owpengram_server_logo_choose(tr::now), st::boxLabel) {
+: RpWidget(parent) {
 	_picker = Ui::CreateChild<ServerLogoPicker>(this, preview, std::move(choose));
+	_name = Ui::CreateChild<Ui::InputField>(
+		this,
+		st::defaultInputField,
+		tr::lng_owpengram_server_name());
+	_desc = Ui::CreateChild<Ui::InputField>(
+		this,
+		st::defaultInputField,
+		tr::lng_owpengram_server_description());
 }
 
-void ServerLogoRow::refreshPreview() {
-	_picker->update();
+int AvatarNameDescRow::resizeGetHeight(int newWidth) {
+	const auto sz = st::introServerAddLogoSize;
+	const auto rightX = sz + kAvatarGap;
+	const auto rightW = std::max(newWidth - rightX, 1);
+
+	_name->resizeToWidth(rightW);
+	_name->moveToLeft(rightX, 0);
+	const auto descY = _name->height() + 8;
+	_desc->resizeToWidth(rightW);
+	_desc->moveToLeft(rightX, descY);
+	const auto totalH = descY + _desc->height();
+
+	_picker->resize(sz, sz);
+	_picker->moveToLeft(0, (totalH - sz) / 2);
+
+	return totalH;
 }
 
-void ServerLogoRow::resizeEvent(QResizeEvent *e) {
-	RpWidget::resizeEvent(e);
-	const auto logoSize = st::introServerAddLogoSize;
-	_picker->moveToLeft(0, (height() - logoSize) / 2);
-	const auto hintLeft = logoSize + st::introServerAddLogoHintSkip;
-	const auto hintWidth = std::max(width() - hintLeft, 1);
-	_hint->resizeToWidth(hintWidth);
-	_hint->moveToLeft(hintLeft, (height() - _hint->height()) / 2);
+// ── Host + Port row ────────────────────────────────────────────────────────
+// Two fields side-by-side; floating placeholders serve as labels.
+
+class HostPortRow final : public Ui::RpWidget {
+public:
+	explicit HostPortRow(QWidget *parent);
+
+	[[nodiscard]] Ui::InputField *host() const { return _host; }
+	[[nodiscard]] Ui::InputField *port() const { return _port; }
+
+protected:
+	int resizeGetHeight(int newWidth) override;
+
+private:
+	Ui::InputField *_host = nullptr;
+	Ui::InputField *_port = nullptr;
+};
+
+HostPortRow::HostPortRow(QWidget *parent) : RpWidget(parent) {
+	_host = Ui::CreateChild<Ui::InputField>(
+		this,
+		st::defaultInputField,
+		tr::lng_owpengram_server_host_hint());
+	_port = Ui::CreateChild<Ui::InputField>(
+		this,
+		st::defaultInputField,
+		tr::lng_owpengram_server_port());
+}
+
+int HostPortRow::resizeGetHeight(int newWidth) {
+	const auto portW = kPortFieldWidth;
+	const auto hostW = std::max(newWidth - portW - 8, 1);
+	_host->resizeToWidth(hostW);
+	_host->moveToLeft(0, 0);
+	_port->resizeToWidth(portW);
+	_port->moveToLeft(hostW + 8, 0);
+	return _host->height();
+}
+
+// ── Side-by-side radio buttons ────────────────────────────────────────────
+
+class RadioTypeRow final : public Ui::RpWidget {
+public:
+	RadioTypeRow(
+		QWidget *parent,
+		std::shared_ptr<Ui::RadiobuttonGroup> group);
+
+protected:
+	int resizeGetHeight(int newWidth) override;
+
+private:
+	Ui::Radiobutton *_single = nullptr;
+	Ui::Radiobutton *_multi  = nullptr;
+};
+
+RadioTypeRow::RadioTypeRow(
+		QWidget *parent,
+		std::shared_ptr<Ui::RadiobuttonGroup> group)
+: RpWidget(parent) {
+	_single = Ui::CreateChild<Ui::Radiobutton>(
+		this, group, 0, u"Single server"_q);
+	_multi = Ui::CreateChild<Ui::Radiobutton>(
+		this, group, 2, u"Multi-DC (Telegram)"_q);
+}
+
+int RadioTypeRow::resizeGetHeight(int newWidth) {
+	const auto gap = 12;
+	const auto half = std::max((newWidth - gap) / 2, 1);
+	_single->resizeToWidth(half);
+	_single->moveToLeft(0, 0);
+	_multi->resizeToWidth(half);
+	_multi->moveToLeft(half + gap, 0);
+	return std::max(_single->height(), _multi->height());
 }
 
 } // namespace
+
+// ── AddServerBox ──────────────────────────────────────────────────────────
 
 AddServerBox::AddServerBox(
 	QWidget*,
 	Fn<void(Owpengram::Server)> done)
 : _done(std::move(done))
-, _content(this) {
-	addLabel(tr::lng_owpengram_server_name(tr::now));
-	_name = _content->add(
-		object_ptr<Ui::InputField>(
-			_content,
-			st::defaultInputField,
-			tr::lng_owpengram_server_name()),
-		st::boxRowPadding);
+, _content(this)
+, _typeGroup(std::make_shared<Ui::RadiobuttonGroup>(0)) {
 
-	_content->add(
-		object_ptr<Ui::FixedHeightWidget>(
-			_content,
-			st::introServerAddSectionSkip));
+	_content->add(object_ptr<Ui::FixedHeightWidget>(
+		_content,
+		st::introServerAddSectionSkip));
 
-	addLabel(tr::lng_owpengram_server_logo(tr::now));
-	_logoRow = _content->add(
-		object_ptr<ServerLogoRow>(
+	// ── avatar + name + description ──────────────────────────────────────
+	const auto topRow = _content->add(
+		object_ptr<AvatarNameDescRow>(
 			_content,
 			&_logoPreview,
 			[=] { chooseLogo(); }),
 		st::boxRowPadding);
-	_logoRow->resize(_logoRow->width(), st::introServerAddLogoRowHeight);
+	_refreshAvatar = [topRow] { topRow->refreshPreview(); };
+	_name        = topRow->name();
+	_description = topRow->desc();
 
+	_content->add(object_ptr<Ui::FixedHeightWidget>(
+		_content,
+		st::introServerAddSectionSkip));
+
+	// ── host + port ───────────────────────────────────────────────────────
+	const auto hostPortRow = _content->add(
+		object_ptr<HostPortRow>(_content),
+		st::boxRowPadding);
+	_host      = hostPortRow->host();
+	_portField = hostPortRow->port();
+
+	_content->add(object_ptr<Ui::FixedHeightWidget>(
+		_content,
+		st::introServerAddSectionSkip));
+
+	// ── server type ───────────────────────────────────────────────────────
 	_content->add(
-		object_ptr<Ui::FixedHeightWidget>(
+		object_ptr<Ui::FlatLabel>(
 			_content,
-			st::introServerAddSectionSkip));
-
-	addLabel(tr::lng_owpengram_server_host(tr::now));
-	_host = _content->add(
-		object_ptr<Ui::InputField>(
-			_content,
-			st::defaultInputField,
-			tr::lng_owpengram_server_host_hint()),
+			u"Server type"_q,
+			st::boxLabel),
+		st::boxRowPadding);
+	_content->add(object_ptr<Ui::FixedHeightWidget>(_content, 6));
+	_content->add(
+		object_ptr<RadioTypeRow>(_content, _typeGroup),
 		st::boxRowPadding);
 
-	addLabel(tr::lng_owpengram_server_port(tr::now));
-	_portField = _content->add(
-		object_ptr<Ui::InputField>(
-			_content,
-			st::defaultInputField,
-			tr::lng_owpengram_server_port()),
-		st::boxRowPadding);
+	_content->add(object_ptr<Ui::FixedHeightWidget>(
+		_content,
+		st::introServerAddSectionSkip / 2));
 
+	// ── main DC (single-server only) ─────────────────────────────────────
+	_mainDcWrap = _content->add(
+		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+			_content,
+			object_ptr<Ui::VerticalLayout>(_content)));
+	{
+		const auto inner = _mainDcWrap->entity();
+		inner->add(
+			object_ptr<Ui::FlatLabel>(
+				inner,
+				u"Main data center"_q,
+				st::boxLabel),
+			st::boxRowPadding);
+		_mainDcField = inner->add(
+			object_ptr<Ui::InputField>(
+				inner,
+				st::defaultInputField,
+				rpl::single(u"1..5"_q),
+				u"1"_q),
+			st::boxRowPadding);
+		inner->add(object_ptr<Ui::FixedHeightWidget>(
+			inner,
+			st::introServerAddSectionSkip / 2));
+	}
+
+	// ── RSA key ───────────────────────────────────────────────────────────
 	_content->add(
-		object_ptr<Ui::FixedHeightWidget>(
+		object_ptr<Ui::FlatLabel>(
 			_content,
-			st::introServerAddSectionSkip));
-
-	addLabel(tr::lng_owpengram_server_rsa_key(tr::now));
+			tr::lng_owpengram_server_rsa_key(tr::now),
+			st::boxLabel),
+		st::boxRowPadding);
 	_rsaPublicKey = _content->add(
 		object_ptr<Ui::InputField>(
 			_content,
@@ -182,47 +308,21 @@ AddServerBox::AddServerBox(
 			tr::lng_owpengram_server_rsa_key_hint()),
 		st::boxRowPadding);
 
-	_content->add(
-		object_ptr<Ui::FixedHeightWidget>(
-			_content,
-			st::introServerAddSectionSkip));
+	_content->add(object_ptr<Ui::FixedHeightWidget>(
+		_content,
+		st::introServerAddSectionSkip));
 
-	addLabel(tr::lng_owpengram_server_description(tr::now));
-	_description = _content->add(
-		object_ptr<Ui::InputField>(
-			_content,
-			st::defaultInputField,
-			Ui::InputField::Mode::MultiLine,
-			tr::lng_owpengram_server_description()),
-		st::boxRowPadding);
-
-	_content->add(
-		object_ptr<Ui::FixedHeightWidget>(
-			_content,
-			st::introServerAddSectionSkip));
-
-	_multiDc = _content->add(
-		object_ptr<Ui::Checkbox>(
-			_content,
-			u"Multi-DC server (Telegram-compatible)"_q,
-			false),
-		st::boxRowPadding);
-
-	addLabel(u"Main data-center (single-server only)"_q);
-	_mainDcField = _content->add(
-		object_ptr<Ui::InputField>(
-			_content,
-			st::defaultInputField,
-			tr::lng_owpengram_server_port(),
-			u"1"_q),
-		st::boxRowPadding);
+	// ── toggle main DC visibility ─────────────────────────────────────────
+	_typeGroup->setChangedCallback([=](int value) {
+		_mainDcWrap->toggle(value == 0, anim::type::normal);
+	});
 }
 
 void AddServerBox::prepare() {
 	setTitle(tr::lng_owpengram_server_add_title());
 	addButton(tr::lng_settings_save(), [=] { save(); });
 	addButton(tr::lng_cancel(), [=] { closeBox(); });
-	setDimensionsToContent(st::boxWidth, _content);
+	setDimensionsToContent(kBoxWidth, _content);
 }
 
 void AddServerBox::setInnerFocus() {
@@ -231,33 +331,23 @@ void AddServerBox::setInnerFocus() {
 	}
 }
 
-void AddServerBox::addLabel(const QString &text) {
-	_content->add(
-		object_ptr<Ui::FlatLabel>(
-			_content,
-			text,
-			st::boxLabel),
-		st::boxRowPadding);
-}
-
 void AddServerBox::chooseLogo() {
 	const auto callback = [=](FileDialog::OpenResult &&result) {
 		if (result.paths.isEmpty()) {
 			return;
 		}
-		const auto path = result.paths.front();
 		auto image = Images::Read({
-			.path = path,
+			.path = result.paths.front(),
 			.forceOpaque = true,
 		}).image;
 		if (image.isNull()) {
 			Ui::Toast::Show(tr::lng_owpengram_server_logo_invalid(tr::now));
 			return;
 		}
-		_logoSourcePath = path;
+		_logoSourcePath = result.paths.front();
 		_logoPreview = std::move(image);
-		if (const auto row = _logoRow.data()) {
-			static_cast<ServerLogoRow*>(row)->refreshPreview();
+		if (_refreshAvatar) {
+			_refreshAvatar();
 		}
 	};
 	FileDialog::GetOpenPath(
@@ -273,10 +363,12 @@ void AddServerBox::save() {
 	auto port = _portField->getLastText().toInt();
 	const auto rsaPublicKey = _rsaPublicKey->getLastText().trimmed();
 	const auto description = _description->getLastText().trimmed();
-	const auto multiDc = _multiDc && _multiDc->checked();
+	const auto multiDc = (_typeGroup->current() == 1);
 	const auto mainDcId = (!multiDc && _mainDcField)
 		? _mainDcField->getLastText().trimmed().toInt()
 		: 0;
+
+	// Allow "host:port" shorthand in the host field.
 	if (host.contains(':')) {
 		const auto parts = host.split(':');
 		if (parts.size() == 2 && port <= 0) {
@@ -284,6 +376,7 @@ void AddServerBox::save() {
 			port = parts[1].trimmed().toInt();
 		}
 	}
+
 	if (name.isEmpty()) {
 		Ui::Toast::Show(tr::lng_owpengram_server_invalid(tr::now));
 		_name->setFocusFast();
@@ -304,6 +397,7 @@ void AddServerBox::save() {
 		_rsaPublicKey->setFocusFast();
 		return;
 	}
+
 	if (const auto server = Owpengram::AddCustomServer(
 			name,
 			host,
