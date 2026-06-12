@@ -24,8 +24,13 @@ constexpr auto WindowsIconPath = "Resources/OwpenGram/art/icon256.ico"_cs;
 constexpr auto MacOSIconName = "Icon.icns"_cs;
 constexpr auto LinuxIconBase = "Resources/OwpenGram/art/icon"_cs;
 
+#ifdef _DEBUG
+constexpr auto LogoPath = ":/gui/art/logo_256_debug.png"_cs;
+constexpr auto LogoNoMarginPath = ":/gui/art/logo_256_debug.png"_cs;
+#else
 constexpr auto LogoPath = ":/gui/art/logo_256.png"_cs;
 constexpr auto LogoNoMarginPath = ":/gui/art/logo_256_no_margin.png"_cs;
+#endif
 constexpr auto PlaneWhitePath = ":/gui/plane_white.svg"_cs;
 constexpr auto BusinessLogoPath = ":/gui/art/business_logo.png"_cs;
 constexpr auto AffiliateLogoPath = ":/gui/art/affiliate_logo.png"_cs;

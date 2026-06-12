@@ -122,6 +122,9 @@ bool DarkTasbarValueValid/* = false*/;
 		bool supportMode,
 		bool smallIcon,
 		bool monochrome) {
+#ifdef _DEBUG
+	monochrome = false; // always use PNG debug logo, skip monochrome SVG
+#endif
 	static auto ScaledLogo = base::flat_map<int, QImage>();
 	static auto ScaledLogoNoMargin = base::flat_map<int, QImage>();
 	static auto ScaledLogoDark = base::flat_map<int, QImage>();
