@@ -23,7 +23,8 @@ public:
 		QWidget*,
 		Owpengram::Server server,
 		Fn<void(const Owpengram::Server&)> connect,
-		Fn<void()> removed = nullptr);
+		Fn<void()> removed = nullptr,
+		Fn<void()> edit = nullptr);
 
 protected:
 	void prepare() override;
@@ -32,6 +33,7 @@ private:
 	Owpengram::Server _server;
 	Fn<void(const Owpengram::Server&)> _connect;
 	Fn<void()> _removed;
+	Fn<void()> _edit;
 	object_ptr<Ui::VerticalLayout> _content;
 	QPointer<Ui::RpWidget> _statusBlock;
 

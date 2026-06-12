@@ -28,8 +28,9 @@ public:
 		QWidget *parent,
 		const QString &label,
 		const QString &value);
-protected:
-	void resizeEvent(QResizeEvent *e) override;
+
+	[[nodiscard]] int resizeGetHeight(int newWidth) override;
+
 private:
 	object_ptr<Ui::FlatLabel> _label;
 	object_ptr<Ui::FlatLabel> _value;
@@ -41,25 +42,18 @@ DetailRow::DetailRow(
 : RpWidget(parent)
 , _label(this, label, st::introServerDetailsLabel)
 , _value(this, value, st::introServerDetailsValue) {
-	const auto height = std::max(
-		_label->height(),
-		_value->height());
-	resize(parent->width(), height);
 }
-void DetailRow::resizeEvent(QResizeEvent *e) {
-	RpWidget::resizeEvent(e);
+int DetailRow::resizeGetHeight(int newWidth) {
 	const auto labelWidth = st::introServerDetailsLabelWidth;
 	_label->resizeToWidth(labelWidth);
-	const auto valueWidth = std::max(width() - labelWidth - st::introServerDetailsRowSkip, 1);
+	const auto valueWidth = std::max(newWidth - labelWidth - st::introServerDetailsRowSkip, 1);
 	_value->resizeToWidth(valueWidth);
 	const auto rowHeight = std::max(_label->height(), _value->height());
 	_label->moveToLeft(0, (rowHeight - _label->height()) / 2);
 	_value->moveToLeft(
 		labelWidth + st::introServerDetailsRowSkip,
 		(rowHeight - _value->height()) / 2);
-	if (height() != rowHeight) {
-		resize(width(), rowHeight);
-	}
+	return rowHeight;
 }
 
 class DescriptionSection final : public Ui::RpWidget {
@@ -294,10 +288,12 @@ ServerDetailsBox::ServerDetailsBox(
 	QWidget*,
 	Owpengram::Server server,
 	Fn<void(const Owpengram::Server&)> connect,
-	Fn<void()> removed)
+	Fn<void()> removed,
+	Fn<void()> edit)
 : _server(std::move(server))
 , _connect(std::move(connect))
 , _removed(std::move(removed))
+, _edit(std::move(edit))
 , _content(this) {
 	const auto rowMargin = st::boxRowPadding + QMargins(
 		0,
@@ -378,6 +374,13 @@ void ServerDetailsBox::prepare() {
 			closeBox();
 		});
 		addButton(tr::lng_cancel(), [=] { closeBox(); });
+		if (_edit && Owpengram::IsRemovableServer(_server)) {
+			addButton(tr::lng_proxy_menu_edit(), [=] {
+				const auto edit = _edit;
+				closeBox();
+				edit();
+			});
+		}
 	} else {
 		addButton(tr::lng_close(), [=] { closeBox(); });
 	}

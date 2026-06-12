@@ -330,6 +330,10 @@ introServerDetailsStatusDotSkip: 6px;
 introServerDetailsStatusLatency: FlatLabel(introServerCardStatusLatency) {
 	align: align(right);
 }
+introServerAddIconCaption: FlatLabel(defaultFlatLabel) {
+	align: align(center);
+	textFg: windowSubTextFg;
+}
 introServerAddSectionSkip: 16px;
 introServerAddLogoSize: 64px;
 introServerAddLogoRowHeight: 64px;

@@ -62,21 +62,28 @@ void ServerLogoPicker::paintEvent(QPaintEvent *e) {
 	paintRipple(p, 0, 0);
 
 	const auto sz = st::introServerAddLogoSize;
-	const auto pixmap = _preview->isNull()
-		? QPixmap(Owpengram::DefaultLogoPath()).scaled(
-			sz, sz,
-			Qt::KeepAspectRatioByExpanding,
-			Qt::SmoothTransformation)
-		: QPixmap::fromImage(*_preview).scaled(
+	p.setPen(Qt::NoPen);
+
+	if (_preview->isNull()) {
+		// Placeholder: neutral circle + "+" to invite the user to pick a photo.
+		p.setBrush(st::windowBgOver);
+		p.drawEllipse(0, 0, sz, sz);
+		const auto arm = sz / 4;
+		const auto cx = sz / 2;
+		const auto cy = sz / 2;
+		p.setPen(QPen(st::windowSubTextFg, 2, Qt::SolidLine, Qt::RoundCap));
+		p.drawLine(cx - arm, cy, cx + arm, cy);
+		p.drawLine(cx, cy - arm, cx, cy + arm);
+	} else {
+		p.setBrush(st::boxBg);
+		p.drawEllipse(0, 0, sz, sz);
+		p.setClipRegion(QRegion(0, 0, sz, sz, QRegion::Ellipse));
+		const auto pixmap = QPixmap::fromImage(*_preview).scaled(
 			sz, sz,
 			Qt::KeepAspectRatioByExpanding,
 			Qt::SmoothTransformation);
-
-	p.setPen(Qt::NoPen);
-	p.setBrush(st::boxBg);
-	p.drawEllipse(0, 0, sz, sz);
-	p.setClipRegion(QRegion(0, 0, sz, sz, QRegion::Ellipse));
-	p.drawPixmap((sz - pixmap.width()) / 2, (sz - pixmap.height()) / 2, pixmap);
+		p.drawPixmap((sz - pixmap.width()) / 2, (sz - pixmap.height()) / 2, pixmap);
+	}
 }
 
 // ── Top row: [avatar] [name / description] ────────────────────────────────
@@ -97,9 +104,10 @@ protected:
 	int resizeGetHeight(int newWidth) override;
 
 private:
-	ServerLogoPicker *_picker = nullptr;
-	Ui::InputField   *_name   = nullptr;
-	Ui::InputField   *_desc   = nullptr;
+	ServerLogoPicker *_picker  = nullptr;
+	Ui::FlatLabel    *_iconLbl = nullptr;
+	Ui::InputField   *_name    = nullptr;
+	Ui::InputField   *_desc    = nullptr;
 };
 
 AvatarNameDescRow::AvatarNameDescRow(
@@ -108,6 +116,10 @@ AvatarNameDescRow::AvatarNameDescRow(
 		Fn<void()> choose)
 : RpWidget(parent) {
 	_picker = Ui::CreateChild<ServerLogoPicker>(this, preview, std::move(choose));
+	_iconLbl = Ui::CreateChild<Ui::FlatLabel>(
+		this,
+		u"Icon"_q,
+		st::introServerAddIconCaption);
 	_name = Ui::CreateChild<Ui::InputField>(
 		this,
 		st::defaultInputField,
@@ -128,10 +140,18 @@ int AvatarNameDescRow::resizeGetHeight(int newWidth) {
 	const auto descY = _name->height() + 8;
 	_desc->resizeToWidth(rightW);
 	_desc->moveToLeft(rightX, descY);
-	const auto totalH = descY + _desc->height();
+	const auto rightH = descY + _desc->height();
 
+	_iconLbl->resizeToWidth(sz);
+	const auto lblGap = 4;
+	const auto lblH = _iconLbl->height();
+	const auto leftH = sz + lblGap + lblH;
+	const auto totalH = std::max(rightH, leftH);
+
+	const auto leftTopY = (totalH - leftH) / 2;
 	_picker->resize(sz, sz);
-	_picker->moveToLeft(0, (totalH - sz) / 2);
+	_picker->moveToLeft(0, leftTopY);
+	_iconLbl->moveToLeft(0, leftTopY + sz + lblGap);
 
 	return totalH;
 }
@@ -217,7 +237,8 @@ int RadioTypeRow::resizeGetHeight(int newWidth) {
 
 AddServerBox::AddServerBox(
 	QWidget*,
-	Fn<void(Owpengram::Server)> done)
+	Fn<void(Owpengram::Server)> done,
+	Owpengram::Server existing)
 : _done(std::move(done))
 , _content(this)
 , _typeGroup(std::make_shared<Ui::RadiobuttonGroup>(0)) {
@@ -286,7 +307,7 @@ AddServerBox::AddServerBox(
 				inner,
 				st::defaultInputField,
 				rpl::single(u"1..5"_q),
-				u"1"_q),
+				u"2"_q),
 			st::boxRowPadding);
 		inner->add(object_ptr<Ui::FixedHeightWidget>(
 			inner,
@@ -316,10 +337,29 @@ AddServerBox::AddServerBox(
 	_typeGroup->setChangedCallback([=](int value) {
 		_mainDcWrap->toggle(value == 0, anim::type::normal);
 	});
+
+	// ── pre-fill when editing an existing server ──────────────────────────
+	if (existing.valid()) {
+		_editingId = existing.id;
+		_name->setText(existing.name);
+		_description->setText(existing.description);
+		_host->setText(existing.host);
+		if (existing.port > 0) {
+			_portField->setText(QString::number(existing.port));
+		}
+		_typeGroup->setValue(existing.multiDc ? 2 : 0);
+		if (existing.mainDcId > 0) {
+			_mainDcField->setText(QString::number(existing.mainDcId));
+		}
+		_rsaPublicKey->setText(existing.rsaPublicKey);
+		_mainDcWrap->toggle(!existing.multiDc, anim::type::instant);
+	}
 }
 
 void AddServerBox::prepare() {
-	setTitle(tr::lng_owpengram_server_add_title());
+	setTitle(_editingId.isEmpty()
+		? tr::lng_owpengram_server_add_title()
+		: tr::lng_owpengram_server_edit_title());
 	addButton(tr::lng_settings_save(), [=] { save(); });
 	addButton(tr::lng_cancel(), [=] { closeBox(); });
 	setDimensionsToContent(kBoxWidth, _content);
@@ -363,7 +403,7 @@ void AddServerBox::save() {
 	auto port = _portField->getLastText().toInt();
 	const auto rsaPublicKey = _rsaPublicKey->getLastText().trimmed();
 	const auto description = _description->getLastText().trimmed();
-	const auto multiDc = (_typeGroup->current() == 1);
+	const auto multiDc = (_typeGroup->current() == 2);
 	const auto mainDcId = (!multiDc && _mainDcField)
 		? _mainDcField->getLastText().trimmed().toInt()
 		: 0;
@@ -398,6 +438,9 @@ void AddServerBox::save() {
 		return;
 	}
 
+	if (!_editingId.isEmpty()) {
+		Owpengram::RemoveCustomServer(_editingId);
+	}
 	if (const auto server = Owpengram::AddCustomServer(
 			name,
 			host,

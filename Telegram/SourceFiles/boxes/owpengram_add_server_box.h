@@ -24,7 +24,8 @@ class AddServerBox : public Ui::BoxContent {
 public:
 	AddServerBox(
 		QWidget*,
-		Fn<void(Owpengram::Server)> done);
+		Fn<void(Owpengram::Server)> done,
+		Owpengram::Server existing = {});
 
 protected:
 	void prepare() override;
@@ -50,4 +51,6 @@ private:
 
 	std::shared_ptr<Ui::RadiobuttonGroup> _typeGroup;
 	Ui::SlideWrap<Ui::VerticalLayout> *_mainDcWrap = nullptr;
+
+	QString _editingId;
 };

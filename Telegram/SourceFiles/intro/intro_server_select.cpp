@@ -387,6 +387,17 @@ void ServerSelectWidget::rebuildList() {
 	};
 	const auto details = [=](const Owpengram::Server &server) {
 		const auto weak = base::make_weak(this);
+		const auto editFn = Owpengram::IsRemovableServer(server)
+			? Fn<void()>(crl::guard(weak, [=, s = server] {
+				if (weak) {
+					Ui::show(Box<AddServerBox>(
+						[=](Owpengram::Server) {
+							if (weak) rebuildList();
+						},
+						s));
+				}
+			}))
+			: Fn<void()>(nullptr);
 		Ui::show(Box<ServerDetailsBox>(
 			server,
 			join,
@@ -394,7 +405,8 @@ void ServerSelectWidget::rebuildList() {
 				if (weak) {
 					rebuildList();
 				}
-			})));
+			}),
+			editFn));
 	};
 
 	auto servers = std::vector<Owpengram::Server>();
