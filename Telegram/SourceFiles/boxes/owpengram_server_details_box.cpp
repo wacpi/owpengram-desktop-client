@@ -179,24 +179,49 @@ HeaderRow::HeaderRow(
 	) | rpl::on_next([=, path = Owpengram::ResolveServerLogoPath(logoPath)] {
 		auto p = QPainter(_logo.data());
 		PainterHighQualityEnabler hq(p);
-		const auto circleMask = !isOfficial;
-		const auto image = QPixmap(path).scaled(
-			logoSize,
-			logoSize,
-			circleMask
-				? Qt::KeepAspectRatioByExpanding
-				: Qt::KeepAspectRatio,
-			Qt::SmoothTransformation);
-		const auto left = (logoSize - image.width()) / 2;
-		const auto top = (logoSize - image.height()) / 2;
-		if (circleMask) {
+		if (path.isEmpty()) {
+			static const QColor kColors[7] = {
+				QColor(0xE5, 0x39, 0x35),
+				QColor(0xE6, 0x4A, 0x19),
+				QColor(0x43, 0xA0, 0x47),
+				QColor(0x00, 0x88, 0x8D),
+				QColor(0x19, 0x76, 0xD2),
+				QColor(0x51, 0x2D, 0xA8),
+				QColor(0xF5, 0x7F, 0x17),
+			};
+			const int colorIdx = int(qHash(name) % 7u);
 			p.setPen(Qt::NoPen);
-			p.setBrush(st::boxBg);
+			p.setBrush(kColors[colorIdx]);
 			p.drawEllipse(0, 0, logoSize, logoSize);
-			p.setClipRect(0, 0, logoSize, logoSize);
-			p.setClipRegion(QRegion(0, 0, logoSize, logoSize, QRegion::Ellipse));
+			const auto ch = name.isEmpty()
+				? QChar('?')
+				: name.at(0).toUpper();
+			p.setPen(Qt::white);
+			auto font = p.font();
+			font.setPixelSize(logoSize / 2);
+			font.setBold(true);
+			p.setFont(font);
+			p.drawText(QRect(0, 0, logoSize, logoSize), Qt::AlignCenter, ch);
+		} else {
+			const auto circleMask = !isOfficial;
+			const auto image = QPixmap(path).scaled(
+				logoSize,
+				logoSize,
+				circleMask
+					? Qt::KeepAspectRatioByExpanding
+					: Qt::KeepAspectRatio,
+				Qt::SmoothTransformation);
+			const auto left = (logoSize - image.width()) / 2;
+			const auto top = (logoSize - image.height()) / 2;
+			if (circleMask) {
+				p.setPen(Qt::NoPen);
+				p.setBrush(st::boxBg);
+				p.drawEllipse(0, 0, logoSize, logoSize);
+				p.setClipRect(0, 0, logoSize, logoSize);
+				p.setClipRegion(QRegion(0, 0, logoSize, logoSize, QRegion::Ellipse));
+			}
+			p.drawPixmap(left, top, image);
 		}
-		p.drawPixmap(left, top, image);
 	}, _logo->lifetime());
 	resize(parent->width(), logoSize);
 }

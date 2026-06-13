@@ -120,9 +120,6 @@ ReadSavedServerSelection(not_null<Main::Account*> account) {
 	result.description = object.value(u"description"_q).toString();
 	result.rsaPublicKey = object.value(u"rsaPublicKey"_q).toString();
 	result.logoPath = object.value(u"logoPath"_q).toString();
-	if (result.logoPath.isEmpty()) {
-		result.logoPath = DefaultLogoPath();
-	}
 	result.isOfficial = false;
 	result.multiDc = object.value(u"multiDc"_q).toBool(false);
 	result.mainDcId = object.value(u"mainDcId"_q).toInt(0);
@@ -136,8 +133,7 @@ ReadSavedServerSelection(not_null<Main::Account*> account) {
 	object.insert(u"host"_q, server.host);
 	object.insert(u"port"_q, server.port);
 	object.insert(u"description"_q, server.description);
-	if (!server.logoPath.isEmpty()
-		&& server.logoPath != DefaultLogoPath()) {
+	if (!server.logoPath.isEmpty()) {
 		object.insert(u"logoPath"_q, server.logoPath);
 	}
 	if (!server.rsaPublicKey.isEmpty()) {
@@ -329,7 +325,6 @@ void ApplyServerToDcOptions(
 		// Unknown custom server: a single-server backend on dc 1 by default.
 		result.name = selection.host;
 		result.isOfficial = false;
-		result.logoPath = DefaultLogoPath();
 	}
 	result.id = selection.id;
 	result.host = selection.host;
@@ -439,7 +434,6 @@ std::optional<Server> AddCustomServer(
 	server.port = port;
 	server.description = description.trimmed();
 	server.rsaPublicKey = rsaPublicKey.trimmed();
-	server.logoPath = DefaultLogoPath();
 	server.isOfficial = false;
 	server.multiDc = multiDc;
 	server.mainDcId = (mainDcId > 0) ? mainDcId : 0;
@@ -573,7 +567,7 @@ bool ShouldUseCloudLangPack() {
 
 QString ResolveServerLogoPath(const QString &logoPath) {
 	if (logoPath.isEmpty()) {
-		return DefaultLogoPath();
+		return QString();
 	}
 	if (logoPath.startsWith(u":/"_q) || QFileInfo(logoPath).isAbsolute()) {
 		return logoPath;

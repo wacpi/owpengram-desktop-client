@@ -105,24 +105,49 @@ ServerRow::ServerRow(
 	) | rpl::on_next([=, path = Owpengram::ResolveServerLogoPath(_server.logoPath)] {
 		auto p = QPainter(_logo);
 		PainterHighQualityEnabler hq(p);
-		const auto circleMask = !_server.isOfficial;
-		const auto image = QPixmap(path).scaled(
-			size,
-			size,
-			circleMask
-				? Qt::KeepAspectRatioByExpanding
-				: Qt::KeepAspectRatio,
-			Qt::SmoothTransformation);
-		const auto left = (size - image.width()) / 2;
-		const auto top = (size - image.height()) / 2;
-		if (circleMask) {
+		if (path.isEmpty()) {
+			static const QColor kColors[7] = {
+				QColor(0xE5, 0x39, 0x35),
+				QColor(0xE6, 0x4A, 0x19),
+				QColor(0x43, 0xA0, 0x47),
+				QColor(0x00, 0x88, 0x8D),
+				QColor(0x19, 0x76, 0xD2),
+				QColor(0x51, 0x2D, 0xA8),
+				QColor(0xF5, 0x7F, 0x17),
+			};
+			const int colorIdx = int(qHash(_server.name) % 7u);
 			p.setPen(Qt::NoPen);
-			p.setBrush(st::boxBg);
+			p.setBrush(kColors[colorIdx]);
 			p.drawEllipse(0, 0, size, size);
-			p.setClipRect(0, 0, size, size);
-			p.setClipRegion(QRegion(0, 0, size, size, QRegion::Ellipse));
+			const auto ch = _server.name.isEmpty()
+				? QChar('?')
+				: _server.name.at(0).toUpper();
+			p.setPen(Qt::white);
+			auto font = p.font();
+			font.setPixelSize(size / 2);
+			font.setBold(true);
+			p.setFont(font);
+			p.drawText(QRect(0, 0, size, size), Qt::AlignCenter, ch);
+		} else {
+			const auto circleMask = !_server.isOfficial;
+			const auto image = QPixmap(path).scaled(
+				size,
+				size,
+				circleMask
+					? Qt::KeepAspectRatioByExpanding
+					: Qt::KeepAspectRatio,
+				Qt::SmoothTransformation);
+			const auto left = (size - image.width()) / 2;
+			const auto top = (size - image.height()) / 2;
+			if (circleMask) {
+				p.setPen(Qt::NoPen);
+				p.setBrush(st::boxBg);
+				p.drawEllipse(0, 0, size, size);
+				p.setClipRect(0, 0, size, size);
+				p.setClipRegion(QRegion(0, 0, size, size, QRegion::Ellipse));
+			}
+			p.drawPixmap(left, top, image);
 		}
-		p.drawPixmap(left, top, image);
 	}, _logo->lifetime());
 
 	_name->setAttribute(Qt::WA_TransparentForMouseEvents);
