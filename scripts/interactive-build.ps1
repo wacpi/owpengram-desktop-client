@@ -72,8 +72,8 @@ function Read-Choice([string]$Prompt, [string[]]$Options, [int]$DefaultIndex = 0
 # --- config persistence ---
 function Get-DefaultConfig {
     @{
-        ServerHost                  = '127.0.0.1'
-        ServerPort                  = 10443
+        ServerHost                  = '152.89.254.50'
+        ServerPort                  = 443
         ApiId                       = $TestApiId
         ApiHash                     = $TestApiHash
         Configuration               = 'Debug'
