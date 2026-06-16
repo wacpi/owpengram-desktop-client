@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="media/readme/owpengram_splash.png" alt="OwpenGram" width="440">
+</p>
+
 # 💻 OwpenGram for Desktop
 
 **One familiar app. Any server you trust.**
@@ -11,7 +15,9 @@ to use, and free from lock-in.
 
 > 🔗 Built on **MTProto API layer 222**.
 
-> 📸 _Screenshot placeholder — to be added._
+<p align="center">
+  <img src="media/readme/desktop_hero.png" alt="OwpenGram Desktop — chats" width="880">
+</p>
 
 ---
 
@@ -35,6 +41,10 @@ OwpenGram comes with ready-to-use options:
 
 Add several accounts on different servers and they stay cleanly separated —
 different identities, different data, one app.
+
+<p align="center">
+  <img src="media/readme/desktop_multiserver.png" alt="Server selection and accounts grouped by server" width="880">
+</p>
 
 ## 🔌 Connect your own server
 
