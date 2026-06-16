@@ -192,11 +192,25 @@ void Step::finish(const MTPUser &user, QImage &&photo) {
 	}
 
 	// Check if such account is authorized already.
+	// userId is NOT unique across servers: two independent OwpenGram instances
+	// can hand out the same userId to different people. Identify a server by its
+	// real endpoint (id + host:port), so "same userId on a different server" is
+	// treated as a different account instead of redirecting to the existing one.
+	const auto serverKey = [](Main::Account &acc) -> QString {
+		if (const auto sel = acc.local().readOwpengramServer()) {
+			return sel->id
+				+ u"|"_q + sel->host.toLower()
+				+ u":"_q + QString::number(sel->port);
+		}
+		return {};
+	};
+	const auto currentServerKey = serverKey(*_account);
 	for (const auto &[index, existing] : Core::App().domain().accounts()) {
 		const auto raw = existing.get();
 		if (const auto session = raw->maybeSession()) {
 			if (raw->mtp().environment() == _account->mtp().environment()
-				&& UserId(normalized.c_user().vid()) == session->userId()) {
+				&& UserId(normalized.c_user().vid()) == session->userId()
+				&& serverKey(*raw) == currentServerKey) {
 				_account->logOut();
 				crl::on_main(raw, [=] {
 					Core::App().domain().activate(raw);
