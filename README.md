@@ -13,7 +13,7 @@ to use, and free from lock-in.
 
 > 🪟 **Available now for Windows.** macOS and Linux builds are planned.
 
-> 🔗 Built on **MTProto API layer 222**.
+> 🔗 Built on **MTProto API layer 225**.
 
 <p align="center">
   <img src="media/readme/desktop_hero.png" alt="OwpenGram Desktop — chats" width="880">
