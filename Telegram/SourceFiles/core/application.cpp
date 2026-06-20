@@ -62,6 +62,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "media/view/media_view_open_common.h"
 #include "mtproto/mtproto_dc_options.h"
 #include "mtproto/mtproto_config.h"
+#include "mtproto/mtp_instance.h"
 #include "media/audio/media_audio_track.h"
 #include "media/player/media_player_instance.h"
 #include "media/player/media_player_float.h"
@@ -1190,6 +1191,15 @@ void Application::checkStartUrls() {
 
 bool Application::openLocalUrl(const QString &url, QVariant context) {
 	const auto urlTrimmed = url.trimmed();
+
+	// OwpenGram self-hosted links (owpg://<host>/<rest>) are routed to the matching
+	// server account and handled with the standard tg:// handlers, bypassing the
+	// official-Telegram guard below.
+	if (urlTrimmed.startsWith(u"owpg://"_q, Qt::CaseInsensitive)
+		&& !passcodeLocked()) {
+		return openOwpengramUrl(urlTrimmed, context);
+	}
+
 	const auto protocol = u"tg://"_q;
 	if (urlTrimmed.startsWith(protocol, Qt::CaseInsensitive)
 		&& !passcodeLocked()) {
@@ -1245,6 +1255,66 @@ bool Application::openLocalUrl(const QString &url, QVariant context) {
 		return openCustomUrl("tg://", LocalUrlHandlers(), url, tgContext);
 	}
 	return openCustomUrl("tg://", LocalUrlHandlers(), url, context);
+}
+
+bool Application::openOwpengramUrl(const QString &url, QVariant context) {
+	// owpg://<host>/<rest> — <host> is the server link host (me_url_prefix), <rest>
+	// is the usual t.me path (+invite, username, ...). Route to the matching server
+	// account and reuse the standard tg:// handlers (no official-Telegram guard).
+	const auto protocol = u"owpg://"_q;
+	const auto body = url.mid(protocol.size());
+	const auto slash = body.indexOf('/');
+	if (slash <= 0) {
+		return false;
+	}
+	const auto host = body.left(slash);
+	const auto rest = body.mid(slash + 1);
+	if (rest.isEmpty()) {
+		return false;
+	}
+
+	const auto hostOf = [](not_null<Main::Account*> account) {
+		auto domain = account->mtp().configValues().internalLinksDomain;
+		static const auto kScheme = QRegularExpression(u"^https?://"_q);
+		domain.remove(kScheme);
+		while (domain.endsWith('/')) {
+			domain.chop(1);
+		}
+		return domain;
+	};
+
+	const auto my = context.value<ClickHandlerContext>();
+	const auto controller = my.sessionWindow.get()
+		? my.sessionWindow.get()
+		: (_lastActivePrimaryWindow
+			? _lastActivePrimaryWindow->sessionController()
+			: nullptr);
+
+	// Open on the active account when it belongs to the link's server.
+	if (controller
+		&& hostOf(&controller->session().account()).compare(
+			host, Qt::CaseInsensitive) == 0) {
+		const auto tgUrl = Core::TryConvertUrlToLocal(u"https://t.me/"_q + rest);
+		if (!tgUrl.startsWith(u"tg://"_q, Qt::CaseInsensitive)) {
+			return false;
+		}
+		ClickHandlerContext tgCtx = my;
+		tgCtx.sessionWindow = base::make_weak(controller);
+		const auto tgContext = QVariant::fromValue(tgCtx);
+		const auto command = tgUrl.mid(u"tg://"_q.size());
+		if (TryRouterForLocalUrl(controller, command)) {
+			return true;
+		}
+		return openCustomUrl("tg://", LocalUrlHandlers(), tgUrl, tgContext);
+	}
+
+	// Link is for a different OwpenGram server than the active account.
+	if (_lastActivePrimaryWindow) {
+		_lastActivePrimaryWindow->activate();
+		_lastActivePrimaryWindow->show(Ui::MakeInformBox(
+			tr::lng_owpengram_owpg_other_server(tr::now) + u"\n"_q + host));
+	}
+	return true;
 }
 
 bool Application::openInternalUrl(const QString &url, QVariant context) {

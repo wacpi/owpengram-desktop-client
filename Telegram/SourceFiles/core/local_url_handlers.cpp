@@ -63,6 +63,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "storage/storage_account.h"
 #include "mainwidget.h"
 #include "main/main_account.h"
+#include "mtproto/mtp_instance.h"
+#include "mtproto/mtproto_config.h"
 #include "main/main_app_config.h"
 #include "main/main_domain.h"
 #include "main/main_session.h"
@@ -1877,6 +1879,59 @@ const std::vector<LocalUrlHandler> &InternalUrlHandlers() {
 	return Result;
 }
 
+// OwpenGram self-hosted: bare link host (me_url_prefix without scheme / trailing
+// slash) of a logged-in account, e.g. "o.me" or "192.168.0.10". Empty for the
+// default t.me (handled by the hardcoded branch below).
+[[nodiscard]] QString OwpengramAccountHost(not_null<Main::Account*> account) {
+	// The server must explicitly advertise itself as an OwpenGram instance
+	// (help.getAppConfig `owpengram` flag); otherwise it could be Telegram/Teamgram
+	// or any other server that happens to set a me_url_prefix, and owpg:// routing
+	// would not work. See memory: owpg-link-scheme.
+	if (!account->appConfig().get<bool>(u"owpengram"_q, false)) {
+		return QString();
+	}
+	auto domain = account->mtp().configValues().internalLinksDomain;
+	static const auto kScheme = QRegularExpression(u"^https?://"_q);
+	domain.remove(kScheme);
+	while (domain.endsWith('/')) {
+		domain.chop(1);
+	}
+	if (domain.isEmpty()
+		|| domain == u"t.me"_q
+		|| domain == u"telegram.me"_q
+		|| domain == u"telegram.dog"_q) {
+		return QString();
+	}
+	return domain;
+}
+
+// If `url` is a web link on the link host of any logged-in OwpenGram server,
+// returns that host; otherwise empty. Lets a self-hosted server's links (domain or
+// IP) be recognised and routed to that server (owpg:// scheme).
+[[nodiscard]] QString OwpengramHostForUrl(const QString &url) {
+	if (!Core::IsAppLaunched()) {
+		return QString();
+	}
+	using namespace qthelp;
+	const auto options = RegExOption::CaseInsensitive;
+	for (const auto account : Core::App().domain().orderedAccounts()) {
+		if (!account->sessionExists()) {
+			continue;
+		}
+		const auto host = OwpengramAccountHost(account);
+		if (host.isEmpty()) {
+			continue;
+		}
+		const auto pattern = u"^(https?://)?(www\\.)?"_q
+			+ QRegularExpression::escape(host)
+			+ u"/.+$"_q;
+		if (regex_match(pattern, url, options)) {
+			return host;
+		}
+	}
+	return QString();
+}
+
 QString TryConvertUrlToLocal(QString url) {
 	if (url.size() > 8192) {
 		url = url.mid(0, 8192);
@@ -1906,6 +1961,18 @@ QString TryConvertUrlToLocal(QString url) {
 				: url;
 		}
 	}
+	// OwpenGram: a link on a self-hosted server's host (domain or IP) becomes an
+	// owpg://<host>/<rest> link, routed to that server (not the official tg://
+	// network, so it bypasses the official-Telegram guard). See Application::openOwpengramUrl.
+	if (const auto owpgHost = OwpengramHostForUrl(url); !owpgHost.isEmpty()) {
+		const auto pattern = u"^(https?://)?(www\\.)?"_q
+			+ QRegularExpression::escape(owpgHost)
+			+ u"/(.+)$"_q;
+		if (const auto m = regex_match(pattern, url, matchOptions)) {
+			return u"owpg://"_q + owpgHost + u"/"_q + m->captured(3);
+		}
+	}
+
 	auto telegramMeMatch = regex_match(u"^(https?://)?(www\\.)?(telegram\\.(me|dog)|t\\.me)/(.+)$"_q, url, matchOptions);
 	if (telegramMeMatch) {
 		const auto query = telegramMeMatch->capturedView(5);
