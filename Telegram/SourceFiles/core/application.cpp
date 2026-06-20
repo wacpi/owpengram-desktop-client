@@ -1284,36 +1284,95 @@ bool Application::openOwpengramUrl(const QString &url, QVariant context) {
 	};
 
 	const auto my = context.value<ClickHandlerContext>();
-	const auto controller = my.sessionWindow.get()
+	const auto activeController = my.sessionWindow.get()
 		? my.sessionWindow.get()
 		: (_lastActivePrimaryWindow
 			? _lastActivePrimaryWindow->sessionController()
 			: nullptr);
 
-	// Open on the active account when it belongs to the link's server.
-	if (controller
-		&& hostOf(&controller->session().account()).compare(
-			host, Qt::CaseInsensitive) == 0) {
+	// Find a logged-in account on the link's server: the ACTIVE one if it matches,
+	// otherwise any other account (we switch to it below). This way an owpg:// link
+	// opens on the right account even when a different account is currently active.
+	const auto matchesHost = [&](not_null<Main::Account*> account) {
+		return account->sessionExists()
+			&& hostOf(account).compare(host, Qt::CaseInsensitive) == 0;
+	};
+	Main::Account *target = nullptr;
+	if (activeController
+		&& matchesHost(&activeController->session().account())) {
+		target = &activeController->session().account();
+	} else {
+		for (const auto &account : _domain->orderedAccounts()) {
+			if (matchesHost(account)) {
+				target = account;
+				break;
+			}
+		}
+	}
+
+	// No logged-in account is on this server.
+	if (!target) {
+		if (_lastActivePrimaryWindow) {
+			_lastActivePrimaryWindow->activate();
+			_lastActivePrimaryWindow->show(Ui::MakeInformBox(
+				tr::lng_owpengram_owpg_other_server(tr::now) + u"\n"_q + host));
+		}
+		return true;
+	}
+
+	// Run the link as a tg:// command on the target account's controller, reusing the
+	// standard handlers (no official-Telegram guard).
+	const auto dispatch = [=, this](Window::SessionController *controller) {
+		if (!controller) {
+			return;
+		}
 		const auto tgUrl = Core::TryConvertUrlToLocal(u"https://t.me/"_q + rest);
 		if (!tgUrl.startsWith(u"tg://"_q, Qt::CaseInsensitive)) {
-			return false;
+			return;
 		}
-		ClickHandlerContext tgCtx = my;
+		auto tgCtx = my;
 		tgCtx.sessionWindow = base::make_weak(controller);
 		const auto tgContext = QVariant::fromValue(tgCtx);
 		const auto command = tgUrl.mid(u"tg://"_q.size());
-		if (TryRouterForLocalUrl(controller, command)) {
-			return true;
+		if (!TryRouterForLocalUrl(controller, command)) {
+			openCustomUrl("tg://", LocalUrlHandlers(), tgUrl, tgContext);
 		}
-		return openCustomUrl("tg://", LocalUrlHandlers(), tgUrl, tgContext);
+	};
+
+	// Already on the target account: open right away.
+	if (activeController && target == &activeController->session().account()) {
+		dispatch(activeController);
+		return true;
 	}
 
-	// Link is for a different OwpenGram server than the active account.
-	if (_lastActivePrimaryWindow) {
-		_lastActivePrimaryWindow->activate();
-		_lastActivePrimaryWindow->show(Ui::MakeInformBox(
-			tr::lng_owpengram_owpg_other_server(tr::now) + u"\n"_q + host));
-	}
+	// The link belongs to a DIFFERENT logged-in account. Switching the active account
+	// (which may rebuild windows / show a connecting box) must NOT happen inside this
+	// click handler, or it can use-after-free the window the click came from and crash.
+	// Defer it so the current stack unwinds first, then switch and open. The account is
+	// re-resolved by host inside the deferred call (it may have changed meanwhile).
+	InvokeQueued(this, [=, this] {
+		Main::Account *account = nullptr;
+		for (const auto &a : _domain->orderedAccounts()) {
+			if (a->sessionExists()
+				&& hostOf(a).compare(host, Qt::CaseInsensitive) == 0) {
+				account = a;
+				break;
+			}
+		}
+		if (!account) {
+			return;
+		}
+		Window::SessionController *controller = nullptr;
+		if (const auto window = windowFor({ not_null<Main::Account*>(account) })) {
+			if (&window->account() != account) {
+				_domain->maybeActivate(account);
+			}
+			if (&window->account() == account) {
+				controller = window->sessionController();
+			}
+		}
+		dispatch(controller);
+	});
 	return true;
 }
 
