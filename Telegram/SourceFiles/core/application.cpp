@@ -2052,6 +2052,20 @@ void Application::RegisterUrlScheme() {
 		.displayAppName = AppName.utf16(),
 		.displayAppDescription = AppName.utf16(),
 	});
+
+	// OwpenGram self-hosted link scheme, registered in the OS alongside tg:// so
+	// owpg://<host>/<rest> links open the app from anywhere (any prefix host, no
+	// per-host config). Dispatched by openLocalUrl -> openOwpengramUrl.
+	base::Platform::RegisterUrlScheme(base::Platform::UrlSchemeDescriptor{
+		.executable = Platform::ExecutablePathForShortcuts(),
+		.arguments = arguments,
+		.protocol = u"owpg"_q,
+		.protocolName = u"OwpenGram Link"_q,
+		.shortAppName = u"tdesktop"_q,
+		.longAppName = QCoreApplication::applicationName(),
+		.displayAppName = AppName.utf16(),
+		.displayAppDescription = AppName.utf16(),
+	});
 }
 
 bool IsAppLaunched() {
