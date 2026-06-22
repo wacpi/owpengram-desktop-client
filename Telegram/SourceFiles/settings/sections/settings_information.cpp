@@ -610,8 +610,11 @@ void SetupRows(
 	auto label = rpl::combine(
 		tr::lng_settings_username_label(),
 		std::move(empty)
-	) | rpl::map([](const QString &label, bool empty) {
-		return empty ? "t.me/username" : label;
+	) | rpl::map([
+		placeholder = session->createInternalLink(u"username"_q)
+	](const QString &label, bool empty) {
+		// Use the server's link prefix (me_url_prefix), not a hardcoded t.me.
+		return empty ? placeholder : label;
 	});
 	auto usernameValue = rpl::combine(
 		std::move(username),
