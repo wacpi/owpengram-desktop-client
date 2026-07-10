@@ -45,6 +45,10 @@ base::options::toggle OptionFreeType({
 	.id = kOptionFreeType,
 	.name = "FreeType font engine",
 	.description = "Use the font engine from Linux instead of the system one.",
+	// Default on: Qt6's Windows text rendering (DirectWrite-only) hints/AAs
+	// Open Sans visibly differently from the old Qt5 (GDI) build. FreeType
+	// matches the look users are used to from the pre-Qt6 client.
+	.defaultValue = true,
 	.scope = base::options::windows | base::options::macos,
 	.restartRequired = true,
 });
