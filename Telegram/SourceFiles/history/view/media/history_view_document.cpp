@@ -20,6 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/history.h"
 #include "core/click_handler_types.h" // kDocumentFilenameTooltipProperty.
 #include "history/view/history_view_element.h"
+#include "history/view/history_view_message.h"
 #include "history/view/history_view_cursor_state.h"
 #include "history/view/history_view_transcribe_button.h"
 #include "history/view/media/history_view_media_common.h"
@@ -46,6 +47,10 @@ namespace HistoryView {
 namespace {
 
 constexpr auto kAudioVoiceMsgUpdateView = crl::time(100);
+
+[[nodiscard]] bool IsHostedInstantViewMedia(not_null<const Element*> parent) {
+	return parent->Get<InstantViewMediaRuntime>() != nullptr;
+}
 
 [[nodiscard]] QRect TTLRectFromInner(const QRect &inner) {
 	return QRect(
@@ -171,7 +176,7 @@ void FillThumbnailOverlay(
 }
 
 void FillWaveform(VoiceData *roundData) {
-	if (!roundData->waveform.empty()) {
+	if (!roundData || !roundData->waveform.empty()) {
 		return;
 	}
 	const auto &size = ::Media::Player::kWaveformSamplesCount;
@@ -344,8 +349,10 @@ Document::Document(
 		_tooltipFilename.setTooltipText(named->name.toString());
 	}
 
+	const auto media = _parent->data()->media();
 	if ((_data->isVoiceMessage() || isRound)
-		&& _parent->data()->media()->ttlSeconds()) {
+		&& media
+		&& media->ttlSeconds()) {
 		const auto fullId = _realParent->fullId();
 		if (_parent->delegate()->elementContext() == Context::TTLViewer) {
 			auto lifetime = std::make_shared<rpl::lifetime>();
@@ -435,7 +442,8 @@ void Document::createComponents() {
 			_realParent->fullId());
 	}
 	if (const auto voice = Get<HistoryDocumentVoice>()) {
-		voice->seekl = !_parent->data()->media()->ttlSeconds()
+		const auto media = _parent->data()->media();
+		voice->seekl = (!media || !media->ttlSeconds())
 			? std::make_shared<VoiceSeekClickHandler>(_data, [](FullMsgId) {})
 			: nullptr;
 		if (_transcribedRound) {
@@ -458,7 +466,8 @@ QSize Document::countOptimalSize() {
 		const auto history = _realParent->history();
 		const auto session = &history->session();
 		const auto transcribes = &session->api().transcribes();
-		if (_parent->data()->media()->ttlSeconds()
+		const auto media = _parent->data()->media();
+		if ((media && media->ttlSeconds())
 			|| _realParent->isScheduled()
 			|| _realParent->isAdminLogEntry()
 			|| (!session->premium()
@@ -610,8 +619,13 @@ QSize Document::countCurrentSize(int newWidth) {
 	const auto hasTranscribe = voice && !voice->transcribeText.isEmpty();
 	const auto thumbed = Get<HistoryDocumentThumbed>();
 	const auto &st = thumbed ? st::msgFileThumbLayout : st::msgFileLayout;
+	const auto hostedInstantViewAudio = IsHostedInstantViewMedia(_parent)
+		&& (_data->isAudioFile() || _data->isVoiceMessage());
 	if (!captioned && !hasTranscribe) {
 		auto result = File::countCurrentSize(newWidth);
+		if (hostedInstantViewAudio) {
+			result.setWidth(std::max(newWidth, result.width()));
+		}
 		if (isBubbleBottom()) {
 			const auto thumbedWidth = thumbedLinkMaxWidth();
 			const auto statusWidth = thumbedWidth
@@ -640,7 +654,9 @@ QSize Document::countCurrentSize(int newWidth) {
 		return result;
 	}
 
-	accumulate_min(newWidth, maxWidth());
+	if (!hostedInstantViewAudio) {
+		accumulate_min(newWidth, maxWidth());
+	}
 	auto newHeight = st.padding.top() + st.thumbSize + st.padding.bottom();
 	if (!isBubbleTop()) {
 		newHeight -= st::msgFileTopMinus;
@@ -1834,6 +1850,11 @@ void Document::refreshParentId(not_null<HistoryItem*> realParent) {
 	if (auto thumbed = Get<HistoryDocumentThumbed>()) {
 		if (thumbed->linksavel) {
 			thumbed->linksavel->setMessageId(fullId);
+		}
+		if (thumbed->linkopenwithl) {
+			thumbed->linkopenwithl->setMessageId(fullId);
+		}
+		if (thumbed->linkcancell) {
 			thumbed->linkcancell->setMessageId(fullId);
 		}
 	}
