@@ -1884,13 +1884,13 @@ const std::vector<LocalUrlHandler> &InternalUrlHandlers() {
 // slash) of a logged-in account, e.g. "o.me" or "192.168.0.10". Empty for the
 // default t.me (handled by the hardcoded branch below).
 [[nodiscard]] QString OwpengramAccountHost(not_null<Main::Account*> account) {
-	// The server must explicitly advertise itself as an OwpenGram instance
-	// (help.getAppConfig `owpengram` flag); otherwise it could be Telegram/Teamgram
-	// or any other server that happens to set a me_url_prefix, and owpg:// routing
-	// would not work. See memory: owpg-link-scheme.
-	if (!account->appConfig().get<bool>(u"owpengram"_q, false)) {
-		return QString();
-	}
+	// Trust any non-official self-hosted server, not only ones that explicitly
+	// advertise an `owpengram` help.getAppConfig flag: most third-party MTProto
+	// server forks (bare gramsrv, teamgram, ...) will never add that marker, but
+	// they still set a custom me_url_prefix and speak the same t.me link grammar
+	// (/+hash, /<username>), so owpg:// routing should work for them too — the
+	// marker (when a server does send it) is honoured implicitly since it plays
+	// no role here anymore. See memory: owpg-link-scheme.
 	auto domain = account->mtp().configValues().internalLinksDomain;
 	static const auto kScheme = QRegularExpression(u"^https?://"_q);
 	domain.remove(kScheme);
