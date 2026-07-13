@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "intro/intro_code.h"
 
+#include "core/email_signup_phone.h"
 #include "lang/lang_keys.h"
 #include "intro/intro_code_input.h"
 #include "intro/intro_signup.h"
@@ -49,9 +50,19 @@ CodeWidget::CodeWidget(
 	_code->setDigitsCountMax(getData()->codeLength);
 
 	updateDescText();
+	// Email-signup accounts have no real phone number at all: getData()->phone
+	// at this point is still the long synthetic wire value EmailSignupWidget
+	// sent (see core/email_signup_phone.h), never meant to be shown to the
+	// user. Show the email they actually typed instead. This is distinct from
+	// the legacy "set up a login email" flow (intro_email.cpp), which also
+	// populates getData()->email but keeps a real phone as the account's
+	// identity — Core::IsEmailSignupPhone tells the two apart unambiguously.
+	const auto emailSignup = Core::IsEmailSignupPhone(getData()->phone);
 	setTitleText(_isFragment.value(
 	) | rpl::map([=](bool isFragment) {
-		return !isFragment
+		return emailSignup
+			? rpl::single(getData()->email)
+			: !isFragment
 			? rpl::single(Ui::FormatPhone(getData()->phone))
 			: tr::lng_intro_fragment_title();
 	}) | rpl::flatten_latest());
