@@ -58,6 +58,7 @@ cmake-build-debug/
 
 # Local configuration files
 api_credentials.local.ps1
+api_credentials.local.sh
 settings.local.json
 *.local.json
 .env

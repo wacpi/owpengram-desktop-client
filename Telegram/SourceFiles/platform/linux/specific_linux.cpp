@@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/platform/linux/base_linux_xdp_utilities.h"
 #include "base/platform/linux/base_linux_app_launch_context.h"
 #include "lang/lang_keys.h"
+#include "core/branding.h"
 #include "core/launcher.h"
 #include "core/sandbox.h"
 #include "core/application.h"
@@ -234,7 +235,7 @@ bool GenerateDesktopFile(
 	DEBUG_LOG(("App Info: placing .desktop file to %1").arg(targetPath));
 	if (!QDir(targetPath).exists()) QDir().mkpath(targetPath);
 
-	const auto sourceFile = u":/misc/org.telegram.desktop.desktop"_q;
+	const auto sourceFile = u":/misc/org.owpengram.desktop.desktop"_q;
 	const auto targetFile = targetPath
 		+ QGuiApplication::desktopFileName()
 		+ u".desktop"_q;
@@ -326,6 +327,22 @@ bool GenerateDesktopFile(
 							'\\',
 							qstr("\\\\")).toStdString());
 				}
+			}
+		}
+
+		if (group == "Desktop Entry") {
+			if (target.has_key(group, "Icon", nullptr)) {
+				target.set_string(
+					group,
+					"Icon",
+					ApplicationIconName().toStdString());
+			}
+
+			if (target.has_key(group, "StartupWMClass", nullptr)) {
+				target.set_string(
+					group,
+					"StartupWMClass",
+					QGuiApplication::desktopFileName().toStdString());
 			}
 		}
 	}
@@ -740,12 +757,15 @@ void start() {
 				+ cExeName();
 		}
 
+		const auto appId = Branding::LinuxAppId.utf16();
+
 		if (!Core::UpdaterDisabled()) {
-			return u"org.telegram.desktop._%1"_q.arg(
-				Core::Launcher::Instance().instanceHash().constData());
+			return appId
+				+ u"._%1"_q.arg(
+					Core::Launcher::Instance().instanceHash().constData());
 		}
 
-		return u"org.telegram.desktop"_q;
+		return appId;
 	}());
 
 	LOG(("App ID: %1").arg(QGuiApplication::desktopFileName()));

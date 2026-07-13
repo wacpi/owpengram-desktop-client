@@ -1,15 +1,15 @@
 [Desktop Entry]
-Name=@branding_short_app_name@
+Name=OwpenGram
 Comment=New era of messaging
-TryExec=Telegram
-Exec=Telegram -- %U
-Icon=org.telegram.desktop
+TryExec=OwpenGram
+Exec=OwpenGram -- %U
+Icon=org.owpengram.desktop
 Terminal=false
-StartupWMClass=TelegramDesktop
+StartupWMClass=org.owpengram.desktop
 Type=Application
 Categories=Chat;Network;InstantMessaging;Qt;
 MimeType=x-scheme-handler/tg;x-scheme-handler/tonsite;
-Keywords=tg;chat;im;messaging;messenger;sms;tdesktop;
+Keywords=tg;chat;im;messaging;messenger;sms;tdesktop;owpengram;
 Actions=quit;
 DBusActivatable=true
 SingleMainWindow=true
@@ -17,6 +17,6 @@ X-GNOME-UsesNotifications=true
 X-GNOME-SingleWindow=true
 
 [Desktop Action quit]
-Exec=Telegram -quit
-Name=Quit @branding_short_app_name@
+Exec=OwpenGram -quit
+Name=Quit OwpenGram
 Icon=application-exit

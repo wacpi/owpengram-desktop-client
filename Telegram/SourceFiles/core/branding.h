@@ -41,4 +41,10 @@ constexpr auto TrayMonochromeMutePath = ":/gui/icons/tray/monochrome_mute.svg"_c
 
 constexpr auto BundleIdentifier = "org.owpengram.desktop"_cs;
 
+#ifdef _DEBUG
+constexpr auto LinuxAppId = "org.owpengram.desktop.Debug"_cs;
+#else
+constexpr auto LinuxAppId = "org.owpengram.desktop"_cs;
+#endif
+
 } // namespace Branding

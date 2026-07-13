@@ -106,9 +106,18 @@ def main():
     for size1x, size1y, size2x, size2y in linux_sizes:
         resize_png(logo_1024, art_dir / f'icon{size1x}.png', (size1x, size1y))
         resize_png(logo_1024, art_dir / f'icon{size1x}@2x.png', (size2x, size2y))
-    
+
     print("\nGenerating ICO file...")
     create_ico(logo_1024, art_dir / 'icon256.ico')
+
+    logo_debug_1024 = icons_dir / 'logo_debug_1024.png'
+    if logo_debug_1024.exists():
+        print("\nGenerating Linux debug icons...")
+        for size1x, size1y, size2x, size2y in linux_sizes:
+            resize_png(logo_debug_1024, art_dir / f'icon{size1x}_debug.png', (size1x, size1y))
+            resize_png(logo_debug_1024, art_dir / f'icon{size1x}_debug@2x.png', (size2x, size2y))
+    else:
+        print(f"\nSkipping Linux debug icons: {logo_debug_1024} not found")
     
     print("\nGenerating SVG variants...")
     create_svg_variant(tray_svg, icons_dir / 'plane_white.svg', fill_color='#ffffff')

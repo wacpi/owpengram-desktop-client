@@ -72,7 +72,7 @@ Don't have a server yet? Spin one up in one command:
 Run the interactive build script — double-click it or run from a terminal:
 
 ```bat
-build-desktop.bat
+build-windows.bat
 ```
 
 It guides you through API credentials, submodules, `prepare`, `configure` and the
@@ -82,6 +82,22 @@ MSBuild step, and remembers your answers in `.owpengram-build.local.json`
 **Requirements:** Visual Studio 2022 (C++ x64), Python 3.10, Git. For manual
 steps and other platforms, see `docs/building-win-x64.md` and the upstream
 [Telegram Desktop](https://github.com/telegramdesktop/tdesktop) build docs.
+
+## 🐧 Build (Linux)
+
+Native build against system libraries (no Docker, no snap):
+
+```bash
+scripts/build-linux.sh            # Release (default)
+scripts/build-linux.sh --debug    # Debug
+```
+
+It installs missing system dependencies (pacman), builds and installs `tde2e`
+locally, initializes submodules, configures CMake in packaged mode, and builds
+with `mold` if available. The resulting binary is at `out/OwpenGram`.
+
+**Requirements:** Arch/Manjaro (pacman-based) or a distro with equivalent
+packages, CMake, Ninja, Git.
 
 ## 📦 Part of the OwpenGram project
 

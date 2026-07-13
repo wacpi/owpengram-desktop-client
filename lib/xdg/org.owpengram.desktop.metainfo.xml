@@ -23,7 +23,7 @@
         <category>Network</category>
         <category>InstantMessaging</category>
     </categories>
-    <developer id="org.telegram"><name>@branding_company_name@</name></developer>
+    <developer id="org.owpengram"><name>@branding_company_name@</name></developer>
     <url type="homepage">https://desktop.telegram.org/</url>
     <url type="faq">https://telegram.org/faq</url>
     <url type="bugtracker">https://github.com/telegramdesktop/tdesktop/issues</url>
@@ -106,10 +106,10 @@
         <content_attribute id="money-gambling">none</content_attribute>
         <content_attribute id="money-advertising">moderate</content_attribute>
     </content_rating>
-    <launchable type="desktop-id">org.telegram.desktop.desktop</launchable>
+    <launchable type="desktop-id">org.owpengram.desktop.desktop</launchable>
     <provides>
-        <binary>Telegram</binary>
-        <dbus type="session">org.telegram.desktop</dbus>
+        <binary>OwpenGram</binary>
+        <dbus type="session">org.owpengram.desktop</dbus>
         <mediatype>x-scheme-handler/tg</mediatype>
         <mediatype>x-scheme-handler/tonsite</mediatype>
     </provides>
