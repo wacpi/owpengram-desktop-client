@@ -115,6 +115,16 @@ void EmailSignupWidget::sendCodeDone(const MTPauth_SentCode &result) {
 		getData()->phoneHash = qba(data.vphone_code_hash());
 		getData()->callStatus = CallStatus::Disabled;
 		getData()->callTimeout = 0;
+		if (getData()->emailStatus == EmailStatus::SetupRequired) {
+			// The server did not recognize our synthetic phone as an
+			// email-signup number and fell back to the unrelated
+			// "set up a login email" flow (auth.sentCodeTypeSetUpEmailRequired),
+			// which expects a completely different next step and never
+			// actually sent a code anywhere. Surface this as an error
+			// instead of silently entering a broken CodeWidget state.
+			showEmailError(rpl::single(u"Server did not accept this as an email-signup account (SetUpEmailRequired). Check TELESRV_EMAIL_SIGNUP_ENABLE on the server."_q));
+			return;
+		}
 		goNext<CodeWidget>();
 	}, [&](const MTPDauth_sentCodeSuccess &data) {
 		finish(data.vauthorization());

@@ -10,12 +10,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Core {
 
 // Email-as-identity signup mode: reversibly encodes an email address into a
-// synthetic "888"-prefixed all-digit phone number, so it can be carried end
-// to end through the existing phone-based auth.sendCode/signIn/signUp/
+// synthetic "888"-prefixed phone-number-shaped string, so it can be carried
+// end to end through the existing phone-based auth.sendCode/signIn/signUp/
 // account.changePhone flow unchanged. Must match the server implementation
 // bit for bit: see internal/domain/emailphone.go (EncodeEmailPhone) in the
-// gramsrv repo. Algorithm: lowercase+trim the email, treat its UTF-8 bytes as
-// a big-endian unsigned integer, print in decimal, prefix with "888".
+// gramsrv repo. Algorithm: lowercase+trim the email; letters and digits pass
+// through unchanged; each of "@._-+" (and a literal 'q') becomes a
+// 2-character 'q'+digit escape. This keeps the encoded length close to the
+// email's own length.
 
 // Returns an empty string if email is empty or has no '@'.
 [[nodiscard]] QString EncodeEmailSignupPhone(const QString &email);
