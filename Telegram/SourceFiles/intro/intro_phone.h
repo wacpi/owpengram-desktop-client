@@ -47,6 +47,7 @@ protected:
 
 private:
 	void setupQrLogin();
+	void checkEmailSignupConfig();
 	void phoneChanged();
 	void checkRequest();
 	void countryChanged();
@@ -68,6 +69,7 @@ private:
 
 	QString _sentPhone;
 	mtpRequestId _sentRequest = 0;
+	mtpRequestId _emailSignupCheckRequest = 0;
 
 	base::Timer _checkRequestTimer;
 

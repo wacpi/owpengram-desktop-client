@@ -556,6 +556,8 @@ PRIVATE
     core/deep_links/deep_links_settings.cpp
     core/deep_links/deep_links_settings.h
     core/deep_links/deep_links_types.h
+    core/email_signup_phone.cpp
+    core/email_signup_phone.h
     core/external_control.cpp
     core/external_control.h
     core/file_utilities.cpp
@@ -1289,6 +1291,8 @@ PRIVATE
     intro/intro_code.h
     intro/intro_email.cpp
     intro/intro_email.h
+    intro/intro_email_signup.cpp
+    intro/intro_email_signup.h
     intro/intro_password_check.cpp
     intro/intro_password_check.h
     intro/intro_phone.cpp

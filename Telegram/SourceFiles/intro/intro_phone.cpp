@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "lang/lang_keys.h"
 #include "intro/intro_code.h"
 #include "intro/intro_email.h"
+#include "intro/intro_email_signup.h"
 #include "intro/intro_qr.h"
 #include "styles/style_intro.h"
 #include "ui/widgets/buttons.h"
@@ -103,6 +104,44 @@ PhoneWidget::PhoneWidget(
 		_country->chooseCountry(u"US"_q);
 	}
 	_changed = false;
+
+	checkEmailSignupConfig();
+}
+
+void PhoneWidget::checkEmailSignupConfig() {
+	// Self-hosted servers can advertise email_signup_enabled=true in
+	// help.getAppConfig to replace this phone-number step with an email
+	// entry step (Intro::details::EmailSignupWidget) — no separate RPC,
+	// this simply reads the same anonymous, pre-login-callable appConfig
+	// used by upstream Telegram for other feature flags.
+	_emailSignupCheckRequest = api().request(MTPhelp_GetAppConfig(
+		MTP_int(0)
+	)).done([=](const MTPhelp_AppConfig &result) {
+		_emailSignupCheckRequest = 0;
+		auto enabled = false;
+		result.match([&](const MTPDhelp_appConfig &data) {
+			const auto &config = data.vconfig();
+			if (config.type() != mtpc_jsonObject) {
+				return;
+			}
+			for (const auto &element : config.c_jsonObject().vvalue().v) {
+				element.match([&](const MTPDjsonObjectValue &entry) {
+					if (qs(entry.vkey()) != u"email_signup_enabled"_q) {
+						return;
+					}
+					entry.vvalue().match([&](const MTPDjsonBool &value) {
+						enabled = mtpIsTrue(value.vvalue());
+					}, [](const auto &) {});
+				});
+			}
+		}, [](const MTPDhelp_appConfigNotModified &) {
+		});
+		if (enabled) {
+			goReplace<EmailSignupWidget>(Animate::Forward);
+		}
+	}).fail([=] {
+		_emailSignupCheckRequest = 0;
+	}).send();
 }
 
 QString PhoneWidget::accessibilityName() {
@@ -336,6 +375,7 @@ void PhoneWidget::finished() {
 
 void PhoneWidget::cancelled() {
 	api().request(base::take(_sentRequest)).cancel();
+	api().request(base::take(_emailSignupCheckRequest)).cancel();
 }
 
 } // namespace details
