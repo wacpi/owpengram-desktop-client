@@ -75,6 +75,10 @@ struct Data {
 	QString email;
 	QString emailPatternSetup;
 	QString emailPatternLogin;
+	// Set once the user explicitly confirms EmailSignupWidget's "log in with
+	// phone number instead" link, so PhoneWidget::checkEmailSignupConfig
+	// does not immediately bounce them back to the email screen.
+	bool emailSignupPhoneFallbackChosen = false;
 
 	Core::CloudPasswordState pwdState;
 

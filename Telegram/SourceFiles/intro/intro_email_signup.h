@@ -47,6 +47,8 @@ private:
 	void sendCodeFail(const MTP::Error &error);
 	void showEmailError(rpl::producer<QString> text);
 	void hideEmailError();
+	void setupPhoneFallbackLink();
+	void confirmPhoneFallback();
 
 	object_ptr<Ui::InputField> _email;
 

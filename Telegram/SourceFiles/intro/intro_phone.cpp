@@ -109,6 +109,12 @@ PhoneWidget::PhoneWidget(
 }
 
 void PhoneWidget::checkEmailSignupConfig() {
+	// The user explicitly chose "log in with phone number instead" from
+	// EmailSignupWidget (see the confirmation box there) — respect that
+	// choice instead of immediately bouncing them back to the email screen.
+	if (getData()->emailSignupPhoneFallbackChosen) {
+		return;
+	}
 	// Self-hosted servers can advertise email_signup_enabled=true in
 	// help.getAppConfig to replace this phone-number step with an email
 	// entry step (Intro::details::EmailSignupWidget) — no separate RPC,

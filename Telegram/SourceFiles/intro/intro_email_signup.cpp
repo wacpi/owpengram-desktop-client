@@ -10,9 +10,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "config.h"
 #include "core/email_signup_phone.h"
 #include "intro/intro_code.h"
+#include "intro/intro_phone.h"
 #include "intro/intro_widget.h"
 #include "lang/lang_keys.h"
 #include "ui/boxes/confirm_box.h"
+#include "ui/widgets/buttons.h"
 #include "ui/widgets/fields/input_field.h"
 #include "boxes/abstract_box.h"
 #include "styles/style_intro.h"
@@ -40,6 +42,49 @@ EmailSignupWidget::EmailSignupWidget(
 	_email->submits() | rpl::on_next([=] {
 		submit();
 	}, _email->lifetime());
+
+	setupPhoneFallbackLink();
+}
+
+void EmailSignupWidget::setupPhoneFallbackLink() {
+	const auto link = Ui::CreateChild<Ui::LinkButton>(
+		this,
+		u"Log in with phone number instead"_q);
+	link->show();
+
+	rpl::combine(
+		sizeValue(),
+		link->widthValue()
+	) | rpl::on_next([=](QSize size, int linkWidth) {
+		link->moveToLeft(
+			(size.width() - linkWidth) / 2,
+			contentTop() + st::introQrLoginLinkTop);
+	}, link->lifetime());
+
+	link->setClickedCallback([=] {
+		confirmPhoneFallback();
+	});
+}
+
+void EmailSignupWidget::confirmPhoneFallback() {
+	Ui::show(Ui::MakeConfirmBox({
+		.text = u"Even if you log in with a phone number, you'll still "
+			"need to link an email to your account right after — this "
+			"server cannot deliver a real SMS code.\n\n"
+			"Using your real phone number here is not recommended for "
+			"privacy.\n\n"
+			"Only use this if you already had an account on this server "
+			"before email sign-up was turned on."_q,
+		.confirmed = [=](Fn<void()> close) {
+			// The plain Fn<void()> overload of .confirmed does not close the
+			// box itself (see Ui::ConfirmBox's prepareCallback) — only this
+			// Fn<void(Fn<void()>)> overload gets a close callback to call.
+			close();
+			getData()->emailSignupPhoneFallbackChosen = true;
+			goReplace<PhoneWidget>(Animate::Back);
+		},
+		.confirmText = u"Use phone number"_q,
+	}));
 }
 
 void EmailSignupWidget::resizeEvent(QResizeEvent *e) {
@@ -62,7 +107,12 @@ void EmailSignupWidget::setInnerFocus() {
 
 void EmailSignupWidget::activate() {
 	Step::activate();
-	_email->show();
+	// showChildren() (not just _email->show()) — Step hides every child
+	// widget during the slide transition and expects activate() to reveal
+	// whichever ones should be visible; the phone-fallback link created in
+	// setupPhoneFallbackLink() was getting left hidden after the animation,
+	// same as PhoneWidget::activate() already does for its QR-login link.
+	showChildren();
 	setInnerFocus();
 }
 
