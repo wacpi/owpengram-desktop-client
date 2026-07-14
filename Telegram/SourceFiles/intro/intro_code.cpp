@@ -49,9 +49,25 @@ CodeWidget::CodeWidget(
 	_code->setDigitsCountMax(getData()->codeLength);
 
 	updateDescText();
-	setTitleText(_isFragment.value(
-	) | rpl::map([=](bool isFragment) {
-		return !isFragment
+	// Any code delivered by email — this fork's "email is the account
+	// identity" signup flow (Core::IsEmailSignupPhone) as well as the older
+	// "bind a login email to your phone account" setup flow — gets the same
+	// "Check Your Email" title the mobile client shows for both, instead of
+	// a raw phone number or (for email-signup) the typed-out email address
+	// (getData()->phone there is still the long synthetic wire value
+	// EmailSignupWidget sent, see core/email_signup_phone.h — never meant to
+	// be shown to the user; the masked pattern in the subtitle already
+	// covers "which email", so the title doesn't need to repeat it).
+	// _showEmailTitle is kept in sync with the emailPattern this mirrors by
+	// updateDescText(), so a mid-flow resend that changes delivery type
+	// updates the title too, not just at construction.
+	setTitleText(rpl::combine(
+		_isFragment.value(),
+		_showEmailTitle.value()
+	) | rpl::map([=](bool isFragment, bool showEmailTitle) {
+		return showEmailTitle
+			? rpl::single(u"Check Your Email"_q)
+			: !isFragment
 			? rpl::single(Ui::FormatPhone(getData()->phone))
 			: tr::lng_intro_fragment_title();
 	}) | rpl::flatten_latest());
@@ -87,6 +103,7 @@ void CodeWidget::updateDescText() {
 	const auto emailPattern = !getData()->emailPatternSetup.isEmpty()
 		? getData()->emailPatternSetup
 		: getData()->emailPatternLogin;
+	_showEmailTitle = !emailPattern.isEmpty();
 	setDescriptionText(!emailPattern.isEmpty()
 		? tr::lng_intro_email_confirm_subtitle(
 			lt_email,

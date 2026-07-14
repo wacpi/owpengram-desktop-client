@@ -83,6 +83,11 @@ private:
 	mtpRequestId _sentRequest = 0;
 
 	rpl::variable<bool> _isFragment = false;
+	// True whenever the current code was delivered by email — this fork's
+	// "email is the account identity" signup flow as well as the older
+	// "bind a login email to your phone account" setup flow — set in
+	// updateDescText() alongside the emailPattern subtitle it mirrors.
+	rpl::variable<bool> _showEmailTitle = false;
 
 	base::Timer _callTimer;
 	CallStatus _callStatus = CallStatus();

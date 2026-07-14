@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/wrap/fade_wrap.h"
 #include "ui/ui_utility.h"
 #include "boxes/abstract_box.h"
+#include "core/email_signup_phone.h"
 #include "core/update_checker.h"
 #include "core/application.h"
 #include "mtproto/mtproto_dc_options.h"
@@ -613,7 +614,9 @@ void Widget::resetAccount() {
 				Ui::show(Ui::MakeInformBox(tr::lng_signin_reset_wait(
 					tr::now,
 					lt_phone_number,
-					Ui::FormatPhone(getData()->phone),
+					(Core::IsEmailSignupPhone(getData()->phone)
+						? getData()->email
+						: Ui::FormatPhone(getData()->phone)),
 					lt_when,
 					when)));
 			} else if (type == u"2FA_RECENT_CONFIRM"_q) {
