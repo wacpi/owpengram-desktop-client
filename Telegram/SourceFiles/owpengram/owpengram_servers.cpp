@@ -500,20 +500,36 @@ void RestoreServerToConfig(
 		return;
 	}
 	if (server.isTelegram) {
-		// For Telegram accounts, restore RSA keys and lock state but do NOT
-		// overwrite the full saved DC option list (DC1-DC5 from the previous
-		// session). Using setFromList (overwrite) would replace them with only
-		// DC2, causing download failures for media on DC3/DC4/DC5 until
-		// help.getConfig responds (~1-3 seconds). Instead use addFromList so
-		// DC2 is present but no saved DCs are discarded.
+		// A locked config means the account was previously on a single-server
+		// backend (owpengram/Teamgram/custom), which force-maps every dc_id
+		// 1..5 onto that one non-Telegram host (see the single-server branch
+		// of ApplyServerToDcOptions below). In that case DC1/3/4/5 are
+		// poisoned with the wrong address and must be fully reset, not
+		// preserved — otherwise the client silently keeps talking to the old
+		// server on those DCs while believing it's connected to Telegram
+		// (this was the actual cause of "new account can't connect" after a
+		// prior owpengram login: AuthKey/RSA and empty dc_options errors).
+		//
+		// When the config was NOT locked (a genuine prior Telegram session),
+		// keep the existing optimization: restore RSA keys and unlock, but
+		// don't overwrite the full saved DC option list (DC1-DC5 from the
+		// previous session). Using setFromList (overwrite) would replace them
+		// with only DC2, causing download failures for media on DC3/DC4/DC5
+		// until help.getConfig responds (~1-3 seconds). Instead use
+		// addFromList so DC2 is present but no saved DCs are discarded.
+		const auto wasLocked = config->dcOptions().optionsLocked();
 		config->dcOptions().setBuiltInPublicKeys(true);
 		config->dcOptions().setOptionsLocked(false);
-		config->dcOptions().addFromList(MTP_vector<MTPDcOption>(1, MTP_dcOption(
-			MTP_flags(MTPDdcOption::Flag::f_static),
-			MTP_int(MTP::DcId(2)),
-			MTP_string(server.host),
-			MTP_int(server.port),
-			MTPbytes())));
+		if (wasLocked) {
+			config->dcOptions().constructFromBuiltIn();
+		} else {
+			config->dcOptions().addFromList(MTP_vector<MTPDcOption>(1, MTP_dcOption(
+				MTP_flags(MTPDdcOption::Flag::f_static),
+				MTP_int(MTP::DcId(2)),
+				MTP_string(server.host),
+				MTP_int(server.port),
+				MTPbytes())));
+		}
 	} else {
 		ApplyServerToDcOptions(&config->dcOptions(), server);
 	}
@@ -535,8 +551,14 @@ void RestoreServerToAccount(not_null<Main::Account*> account) {
 	}
 	auto &mtp = account->mtp();
 	if (server.isTelegram) {
+		// Same reasoning as RestoreServerToConfig above: a locked instance is
+		// coming from a single-server backend, so DC1/3/4/5 may be poisoned
+		// even if DC2 happens to already match (e.g. RestoreServerToConfig
+		// just added it) — never take the "already matches" shortcut in that
+		// case, always force the full built-in-table reset.
+		const auto wasLocked = mtp.dcOptions().optionsLocked();
 		mtp.dcOptions().setOptionsLocked(false);
-		if (EndpointMatchesServer(&mtp, server)) {
+		if (!wasLocked && EndpointMatchesServer(&mtp, server)) {
 			return;
 		}
 		const auto dcId = mtp.mainDcId();
