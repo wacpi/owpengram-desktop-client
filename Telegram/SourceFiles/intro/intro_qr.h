@@ -44,6 +44,8 @@ private:
 	void sendCheckPasswordRequest();
 	void setupControls();
 	void setupPasskeyLink();
+	void setupSkipLink();
+	void checkEmailSignupConfig();
 	void refreshCode();
 	void checkForTokenUpdate(const MTPUpdates &updates);
 	void checkForTokenUpdate(const MTPUpdate &update);
@@ -59,6 +61,13 @@ private:
 	base::Timer _refreshTimer;
 	mtpRequestId _requestId = 0;
 	bool _forceRefresh = false;
+
+	// Mirrors PhoneWidget::checkEmailSignupConfig: when the server advertises
+	// email_signup_enabled=true, the "or use phone number" link under the QR
+	// code must say (and lead to) email instead, since a real phone number
+	// isn't the account identity on such a server.
+	mtpRequestId _emailSignupCheckRequest = 0;
+	bool _emailSignupEnabled = false;
 
 };
 

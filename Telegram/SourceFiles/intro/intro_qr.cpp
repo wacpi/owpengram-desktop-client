@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "boxes/abstract_box.h"
 #include "data/components/passkeys.h"
+#include "intro/intro_email_signup.h"
 #include "intro/intro_phone.h"
 #include "intro/intro_widget.h"
 #include "intro/intro_password_check.h"
@@ -218,6 +219,39 @@ QrWidget::QrWidget(
 	}) | rpl::on_next([=] {
 		setupPasskeyLink();
 	}, lifetime());
+
+	checkEmailSignupConfig();
+}
+
+void QrWidget::checkEmailSignupConfig() {
+	_emailSignupCheckRequest = api().request(MTPhelp_GetAppConfig(
+		MTP_int(0)
+	)).done([=](const MTPhelp_AppConfig &result) {
+		_emailSignupCheckRequest = 0;
+		result.match([&](const MTPDhelp_appConfig &data) {
+			const auto &config = data.vconfig();
+			if (config.type() != mtpc_jsonObject) {
+				return;
+			}
+			for (const auto &element : config.c_jsonObject().vvalue().v) {
+				element.match([&](const MTPDjsonObjectValue &entry) {
+					if (qs(entry.vkey()) != u"email_signup_enabled"_q) {
+						return;
+					}
+					entry.vvalue().match([&](const MTPDjsonBool &value) {
+						_emailSignupEnabled = mtpIsTrue(value.vvalue());
+					}, [](const auto &) {});
+				});
+			}
+		}, [](const MTPDhelp_appConfigNotModified &) {
+		});
+		setupSkipLink();
+	}).fail([=] {
+		_emailSignupCheckRequest = 0;
+		// Unknown either way — fall back to the normal phone wording rather
+		// than leaving the link missing entirely.
+		setupSkipLink();
+	}).send();
 }
 
 QString QrWidget::accessibilityName() {
@@ -268,7 +302,11 @@ void QrWidget::checkForTokenUpdate(const MTPUpdate &update) {
 }
 
 void QrWidget::submit() {
-	goReplace<PhoneWidget>(Animate::Forward);
+	if (_emailSignupEnabled) {
+		goReplace<EmailSignupWidget>(Animate::Forward);
+	} else {
+		goReplace<PhoneWidget>(Animate::Forward);
+	}
 }
 
 rpl::producer<QString> QrWidget::nextButtonText() const {
@@ -339,9 +377,21 @@ void QrWidget::setupControls() {
 			contentTop() + st::introQrStepsTop);
 	}, steps->lifetime());
 
+	// _skip is created lazily by setupSkipLink(), once checkEmailSignupConfig()
+	// knows whether to word/route it for phone or for email — creating it
+	// upfront with the phone wording and correcting the text later caused a
+	// visible flash of the wrong text on every launch.
+}
+
+void QrWidget::setupSkipLink() {
+	Expects(!_skip);
+
 	_skip = Ui::CreateChild<Ui::LinkButton>(
 		this,
-		tr::lng_intro_qr_phone(tr::now));
+		(_emailSignupEnabled
+			? u"Log in with email"_q
+			: tr::lng_intro_qr_phone(tr::now)));
+	_skip->show();
 	rpl::combine(
 		sizeValue(),
 		_skip->widthValue()
@@ -519,6 +569,7 @@ void QrWidget::finished() {
 
 void QrWidget::cancelled() {
 	api().request(base::take(_requestId)).cancel();
+	api().request(base::take(_emailSignupCheckRequest)).cancel();
 }
 
 QImage TelegramLogoImage() {
