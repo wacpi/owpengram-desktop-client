@@ -4,14 +4,21 @@
 # build-windows.bat: asks Release or Debug (unless passed explicitly) and
 # builds. No menus, no server patching - see docs/building-linux.md for that.
 #
+# Pass --docker for a portable build (runs on any Linux, not just this
+# machine) via the Rocky Linux 8 Docker image - see scripts/build-linux.sh
+# --help for details. Without it, builds natively against this machine's
+# system libraries (fast, but not portable to other distros).
+#
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 CONFIGURATION=""
+USE_DOCKER=0
 for arg in "$@"; do
     case "$arg" in
         --debug) CONFIGURATION="Debug" ;;
         --release) CONFIGURATION="Release" ;;
+        --docker) USE_DOCKER=1 ;;
     esac
 done
 
@@ -29,4 +36,7 @@ if [ -z "$CONFIGURATION" ]; then
     done
 fi
 
-exec "$ROOT/scripts/build-linux.sh" "--$(echo "$CONFIGURATION" | tr '[:upper:]' '[:lower:]')"
+ARGS=("--$(echo "$CONFIGURATION" | tr '[:upper:]' '[:lower:]')")
+if [ "$USE_DOCKER" -eq 1 ]; then ARGS+=(--docker); fi
+
+exec "$ROOT/scripts/build-linux.sh" "${ARGS[@]}"

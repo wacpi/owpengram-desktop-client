@@ -1,5 +1,6 @@
 /logs/
 /out/
+/out-docker/
 Debug/
 Release/
 /ThirdParty/

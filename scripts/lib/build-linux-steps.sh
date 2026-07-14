@@ -141,3 +141,118 @@ build_project() {
     cmake --build "$REPO_ROOT/out" -j"$(nproc)"
     ok "Build finished: $REPO_ROOT/out/OwpenGram"
 }
+
+# --- portable build (Docker, Rocky Linux 8 baseline) -------------------------
+#
+# Produces a binary that runs on essentially any Linux from the last ~6 years
+# (Ubuntu 18.04+, Debian 10+, ...) instead of one tied to this machine's exact
+# library versions. Output goes to out-docker/ (kept separate from out/, which
+# belongs to the native packaged-mode build) so the two never clobber each other.
+
+DOCKER_IMAGE_TAG="tdesktop:centos_env"
+
+ensure_docker_image() {
+    if docker image inspect "$DOCKER_IMAGE_TAG" >/dev/null 2>&1; then
+        ok "Docker image $DOCKER_IMAGE_TAG already built."
+        return
+    fi
+
+    step "Building Docker image $DOCKER_IMAGE_TAG (Rocky Linux 8 - portable baseline, one-time, long)"
+
+    if ! python3 -c "import jinja2" >/dev/null 2>&1; then
+        if command -v pacman >/dev/null 2>&1; then
+            sudo pacman -S --needed python-jinja
+        else
+            err "Python module 'jinja2' not found - install it (e.g. pip install --user jinja2)."
+            return 1
+        fi
+    fi
+
+    # The Dockerfile has ~15 independent stages (Qt6, WebRTC, openssl, ada, ...),
+    # each doing its own `cmake --build`/LTO compile with no job cap by default.
+    # On a normal workstation (not a 32+ core build server) that OOM-kills
+    # cc1plus midway - some individual translation units (Qt's qmldom AST
+    # code in particular) are heavy enough to OOM even mostly alone. Two
+    # built-in template knobs fix this at the source:
+    #   - JOBS sets CMAKE_BUILD_PARALLEL_LEVEL for every stage (real -j cap,
+    #     not just a CPU quota that job schedulers ignore).
+    #   - LTO=false drops -flto=auto -ffat-lto-objects, which roughly doubles
+    #     per-file compile memory (keeps both LTO bytecode and regular object
+    #     code in memory at once).
+    # A dedicated builder with max-parallelism=1 additionally keeps two
+    # whole stages (e.g. Qt and WebRTC) from running concurrently.
+    local builder_name="owpengram-portable-builder"
+    if ! docker buildx inspect "$builder_name" >/dev/null 2>&1; then
+        step "Creating a builder ($builder_name) that only runs one stage at a time"
+        local buildkitd_conf
+        buildkitd_conf="$(mktemp)"
+        cat > "$buildkitd_conf" <<'EOF'
+[worker.oci]
+  max-parallelism = 1
+EOF
+        docker buildx create --name "$builder_name" --driver docker-container --config "$buildkitd_conf"
+        rm -f "$buildkitd_conf"
+    fi
+
+    # nproc/2 still OOM-killed on a Qt precompiled-header generation (PCH
+    # compiles are unusually memory-hungry, more so than a typical TU). Size
+    # this off actual RAM instead of core count: ~4 GB/job covers the worst
+    # PCH/template-heavy files we've hit so far, with headroom for the OS.
+    local total_ram_gb build_jobs
+    total_ram_gb=$(( $(awk '/MemTotal/{print $2}' /proc/meminfo) / 1024 / 1024 ))
+    build_jobs=$(( total_ram_gb / 4 ))
+    if [ "$build_jobs" -lt 1 ]; then build_jobs=1; fi
+    if [ "$build_jobs" -gt "$(nproc)" ]; then build_jobs="$(nproc)"; fi
+
+    local dockerfile_dir="$REPO_ROOT/Telegram/build/docker/centos_env"
+    (cd "$dockerfile_dir" && JOBS="$build_jobs" LTO= python3 gen_dockerfile.py > /tmp/owpengram-centos_env.Dockerfile)
+    docker buildx build --builder "$builder_name" --load \
+        -t "$DOCKER_IMAGE_TAG" -f /tmp/owpengram-centos_env.Dockerfile "$dockerfile_dir"
+    rm -f /tmp/owpengram-centos_env.Dockerfile
+}
+
+build_via_docker() {
+    local configuration="$1"
+    local docker_out_dir="$REPO_ROOT/out-docker"
+
+    ensure_submodules
+    ensure_docker_image
+    resolve_api_credentials
+    mkdir -p "$docker_out_dir"
+
+    step "Building via Docker ($configuration) - live output below"
+
+    local tty_flags=()
+    if [ -t 1 ]; then tty_flags=(-it); fi
+
+    local config_env=()
+    if [ "$configuration" = "Debug" ]; then config_env=(-e "CONFIG=Debug"); fi
+
+    # The default bfd `ld` OOM-kills on the final link even with 11+ GB RAM
+    # (same issue as the native build, just bigger). lld is already bundled
+    # in this image (no mold), and is far lighter on memory.
+    docker run --rm "${tty_flags[@]}" \
+        -u "$(id -u)" \
+        -v "$REPO_ROOT:/usr/src/tdesktop" \
+        -v "$docker_out_dir:/usr/src/tdesktop/out" \
+        "${config_env[@]}" \
+        "$DOCKER_IMAGE_TAG" \
+        /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
+        -D TDESKTOP_API_ID="$API_ID" \
+        -D TDESKTOP_API_HASH="$API_HASH" \
+        -D CMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld -Wl,--allow-multiple-definition" \
+        -D CMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld -Wl,--allow-multiple-definition" \
+        -D CMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld -Wl,--allow-multiple-definition"
+
+    local binary_path="$docker_out_dir/$configuration/OwpenGram"
+
+    # The image bakes in -g/-gdwarf64 even for Release (so official builds can
+    # symbolicate crash reports) - that alone bloats an unstripped binary from
+    # ~250 MB to 14+ GB. Strip Release; keep Debug symbols for local debugging.
+    if [ "$configuration" = "Release" ] && [ -f "$binary_path" ]; then
+        step "Stripping debug symbols (Release only)"
+        strip "$binary_path"
+    fi
+
+    ok "Build finished: $binary_path"
+}
