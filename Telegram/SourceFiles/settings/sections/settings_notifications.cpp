@@ -17,6 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/ringtones_box.h"
 #include "core/application.h"
 #include "core/branding.h"
+#include "core/version.h"
 #include "data/data_chat_filters.h"
 #include "data/data_session.h"
 #include "data/notify/data_notify_settings.h"
