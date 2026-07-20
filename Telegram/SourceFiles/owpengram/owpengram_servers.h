@@ -26,7 +26,6 @@ namespace Owpengram {
 
 inline constexpr auto kOfficialServerId = "official";
 inline constexpr auto kTelegramServerId = "telegram";
-inline constexpr auto kTeamgramServerId = "teamgram";
 
 struct Server {
 	QString id;
@@ -40,7 +39,7 @@ struct Server {
 	bool isTelegram = false;
 	// Multi-DC servers (Telegram) trust help.getConfig / the special loader to
 	// discover real alternate data-center addresses. Single-server backends
-	// (owpengram/Teamgram/MyTelegram/custom) are one physical machine, so every
+	// (owpengram/MyTelegram/custom) are one physical machine, so every
 	// dc_id is mapped onto the single host:port instead.
 	bool multiDc = false;
 	// Home data-center id. 0 = auto (multiDc -> 2, single-server -> 1).
@@ -52,7 +51,6 @@ struct Server {
 };
 
 [[nodiscard]] Server TelegramServer();
-[[nodiscard]] Server TeamgramServer();
 [[nodiscard]] Server OfficialServer();
 [[nodiscard]] std::vector<Server> ListServers();
 [[nodiscard]] std::optional<Server> FindServer(const QString &id);
@@ -98,7 +96,6 @@ void WaitForServerConnection(
 
 [[nodiscard]] QString DefaultLogoPath();
 [[nodiscard]] QString TelegramLogoPath();
-[[nodiscard]] QString TeamgramLogoPath();
 [[nodiscard]] QString FormatEndpoint(const Server &server);
 
 } // namespace Owpengram

@@ -42,33 +42,16 @@ constexpr auto kCheckTimeoutMs = 3000;
 constexpr auto kConnectTimeoutMs = 30000;
 const auto kOfficialDefaultHost = u"89.28.58.29"_q;
 constexpr auto kOfficialDefaultPort = 2398;
-const auto kTeamgramDefaultHost = u"43.155.11.190"_q;
-constexpr auto kTeamgramDefaultPort = 10443;
 
-// Default RSA public keys for the built-in self-hosted servers (the binary now
-// ships the real Telegram keys, so each self-hosted profile carries its own key).
-// Replace kTeamgramRsaPublicKey with Teamgram's real key if it differs.
+// Default RSA public key for the built-in self-hosted OwpenGram server.
 const auto kOfficialRsaPublicKey = u"\
 -----BEGIN RSA PUBLIC KEY-----\n\
-MIIBCgKCAQEAvKLEOWTzt9Hn3/9Kdp/RdHcEhzmd8xXeLSpHIIzaXTLJDw8BhJy1\n\
-jR/iqeG8Je5yrtVabqMSkA6ltIpgylH///FojMsX1BHu4EPYOXQgB0qOi6kr08iX\n\
-ZIH9/iOPQOWDsL+Lt8gDG0xBy+sPe/2ZHdzKMjX6O9B4sOsxjFrk5qDoWDrioJor\n\
-AJ7eFAfPpOBf2w73ohXudSrJE0lbQ8pCWNpMY8cB9i8r+WBitcvouLDAvmtnTX7a\n\
-khoDzmKgpJBYliAY4qA73v7u5UIepE8QgV0jCOhxJCPubP8dg+/PlLLVKyxU5Cdi\n\
-QtZj2EMy4s9xlNKzX8XezE0MHEa6bQpnFwIDAQAB\n\
------END RSA PUBLIC KEY-----"_q;
-
-// Teamgram currently shares the same default self-hosted key (this is what it
-// used before each profile carried its own key). Swap in Teamgram's real public
-// key here if its server uses a different one.
-const auto kTeamgramRsaPublicKey = u"\
------BEGIN RSA PUBLIC KEY-----\n\
-MIIBCgKCAQEAvKLEOWTzt9Hn3/9Kdp/RdHcEhzmd8xXeLSpHIIzaXTLJDw8BhJy1\n\
-jR/iqeG8Je5yrtVabqMSkA6ltIpgylH///FojMsX1BHu4EPYOXQgB0qOi6kr08iX\n\
-ZIH9/iOPQOWDsL+Lt8gDG0xBy+sPe/2ZHdzKMjX6O9B4sOsxjFrk5qDoWDrioJor\n\
-AJ7eFAfPpOBf2w73ohXudSrJE0lbQ8pCWNpMY8cB9i8r+WBitcvouLDAvmtnTX7a\n\
-khoDzmKgpJBYliAY4qA73v7u5UIepE8QgV0jCOhxJCPubP8dg+/PlLLVKyxU5Cdi\n\
-QtZj2EMy4s9xlNKzX8XezE0MHEa6bQpnFwIDAQAB\n\
+MIIBCgKCAQEA3ZNExKO0xgSd4NLyMFvh5VQS7pZ+Bbz/zn+b21Vr/JQMqAVd0Wsc\n\
+3tw6D5ha+r7MXo0UQfm8aZarckZnoAyG6T38oJH1gYGxFe7AI4X32+Q6OaICZeUP\n\
+Fm7FtmYnUJ+UcZSGdkoVbQj1exXUCS0A+Iu+3N/9b6QxcH7eJrDcrLLZxVF076af\n\
+uYON9S/17/sSYjqEKs3iNy2tbBdCYlI0DC9khUpvUMiV5gcWDq4VZuyYwp/T7Xcc\n\
+LdAToVRGdlmfixMAxFyKoQMYEuMF2/H4lgdi2lns2Aph41msnrlsHh6rnM/3h3K7\n\
+MbKZrIcj9hA82K2Zaa3UYMo01lZ4+GXpCQIDAQAB\n\
 -----END RSA PUBLIC KEY-----"_q;
 
 [[nodiscard]] QString ServersFilePath() {
@@ -317,8 +300,6 @@ void ApplyServerToDcOptions(
 	auto result = Server();
 	if (selection.id == QString::fromLatin1(kTelegramServerId)) {
 		result = TelegramServer();
-	} else if (selection.id == QString::fromLatin1(kTeamgramServerId)) {
-		result = TeamgramServer();
 	} else if (selection.id == QString::fromLatin1(kOfficialServerId)) {
 		result = OfficialServer();
 	} else {
@@ -340,10 +321,6 @@ QString TelegramLogoPath() {
 	return u":/gui/art/telegram_logo_256.png"_q;
 }
 
-QString TeamgramLogoPath() {
-	return u":/gui/art/teamgram_logo_256.png"_q;
-}
-
 Server TelegramServer() {
 	auto result = Server();
 	result.id = QString::fromLatin1(kTelegramServerId);
@@ -355,21 +332,6 @@ Server TelegramServer() {
 	result.isOfficial = true;
 	result.isTelegram = true;
 	result.multiDc = true;
-	result.mainDcId = 2;
-	return result;
-}
-
-Server TeamgramServer() {
-	auto result = Server();
-	result.id = QString::fromLatin1(kTeamgramServerId);
-	result.name = tr::lng_owpengram_server_teamgram_name(tr::now);
-	result.description = tr::lng_owpengram_server_teamgram_description(tr::now);
-	result.host = kTeamgramDefaultHost;
-	result.port = kTeamgramDefaultPort;
-	result.logoPath = TeamgramLogoPath();
-	result.isOfficial = true;
-	result.rsaPublicKey = kTeamgramRsaPublicKey;
-	result.multiDc = false;
 	result.mainDcId = 2;
 	return result;
 }
@@ -450,15 +412,13 @@ std::optional<Server> AddCustomServer(
 
 bool IsRemovableServer(const Server &server) {
 	return !server.isOfficial
-		&& server.id != QString::fromLatin1(kTeamgramServerId)
 		&& server.id != QString::fromLatin1(kTelegramServerId)
 		&& server.id != QString::fromLatin1(kOfficialServerId);
 }
 
 bool RemoveCustomServer(const QString &id) {
 	if (id == QString::fromLatin1(kOfficialServerId)
-		|| id == QString::fromLatin1(kTelegramServerId)
-		|| id == QString::fromLatin1(kTeamgramServerId)) {
+		|| id == QString::fromLatin1(kTelegramServerId)) {
 		return false;
 	}
 	auto array = ReadCustomServersJson();
@@ -501,7 +461,7 @@ void RestoreServerToConfig(
 	}
 	if (server.isTelegram) {
 		// A locked config means the account was previously on a single-server
-		// backend (owpengram/Teamgram/custom), which force-maps every dc_id
+		// backend (owpengram/custom), which force-maps every dc_id
 		// 1..5 onto that one non-Telegram host (see the single-server branch
 		// of ApplyServerToDcOptions below). In that case DC1/3/4/5 are
 		// poisoned with the wrong address and must be fully reset, not

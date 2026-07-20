@@ -1912,7 +1912,7 @@ const std::vector<LocalUrlHandler> &InternalUrlHandlers() {
 [[nodiscard]] QString OwpengramAccountHost(not_null<Main::Account*> account) {
 	// Trust any non-official self-hosted server, not only ones that explicitly
 	// advertise an `owpengram` help.getAppConfig flag: most third-party MTProto
-	// server forks (bare gramsrv, teamgram, ...) will never add that marker, but
+	// server forks (bare gramsrv, ...) will never add that marker, but
 	// they still set a custom me_url_prefix and speak the same t.me link grammar
 	// (/+hash, /<username>), so owpg:// routing should work for them too — the
 	// marker (when a server does send it) is honoured implicitly since it plays
