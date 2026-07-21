@@ -543,7 +543,7 @@ Server CurrentServerForAccount(not_null<Main::Account*> account) {
 }
 
 bool ShouldUseCloudLangPack() {
-	return false;
+	return true;
 }
 
 QString ResolveServerLogoPath(const QString &logoPath) {
