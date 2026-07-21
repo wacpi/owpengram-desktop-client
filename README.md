@@ -144,3 +144,5 @@ Based on [Telegram Desktop](https://github.com/telegramdesktop/tdesktop) —
 ---
 
 ⭐ If OwpenGram is useful to you, a star on GitHub helps a lot.
+
+CI trigger test
