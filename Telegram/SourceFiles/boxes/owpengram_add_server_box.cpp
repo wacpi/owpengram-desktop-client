@@ -439,7 +439,7 @@ void AddServerBox::save() {
 	}
 
 	if (!_editingId.isEmpty()) {
-		Owpengram::RemoveCustomServer(_editingId);
+		(void)Owpengram::RemoveCustomServer(_editingId);
 	}
 	if (const auto server = Owpengram::AddCustomServer(
 			name,
