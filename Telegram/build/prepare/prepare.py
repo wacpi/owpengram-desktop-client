@@ -1193,6 +1193,7 @@ winarm:
 win:
 depends:patches/build_ffmpeg_win.sh
     bash ../patches/build_ffmpeg_win.sh
+    @if not exist libavutil\\avconfig.h bash -c "cp ../local/include/libavutil/avconfig.h libavutil/avconfig.h 2>/dev/null; exit 0"
 mac:
     export PKG_CONFIG_PATH=$USED_PREFIX/lib/pkgconfig
 
