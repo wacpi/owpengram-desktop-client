@@ -161,6 +161,15 @@ jobs:
         run: |
           %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat skip-release silent ${{ matrix.qt }}
 
+      - name: Copy avconfig.h to ffmpeg source tree.
+        shell: bash
+        run: |
+          if [ -f "$LibrariesPath/local/include/libavutil/avconfig.h" ]; then
+            cp -v "$LibrariesPath/local/include/libavutil/avconfig.h" "$LibrariesPath/ffmpeg/libavutil/avconfig.h"
+          else
+            echo "avconfig.h not found at $LibrariesPath/local/include/libavutil/avconfig.h"
+          fi
+
       - name: Read configuration matrix.
         shell: bash
         run: |
