@@ -13,7 +13,7 @@ endif()
 if (POLICY CMP0179)
     cmake_policy(SET CMP0179 OLD)
 endif()
-# Newer CMake warns (as a dev error, since configure.sh passes -Werror=dev)
+# Newer CMake warns (as a developer error, since configure.sh passes -Werror=author)
 # when CMAKE_WARN_DEPRECATED/CMAKE_ERROR_DEPRECATED are set without opting
 # into this policy - vendored cmark_gfm/CMakeLists.txt does exactly that.
 if (POLICY CMP0218)
