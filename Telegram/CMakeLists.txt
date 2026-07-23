@@ -2420,6 +2420,7 @@ if (NOT DESKTOP_APP_DISABLE_AUTOUPDATE AND NOT build_macstore AND NOT build_wins
         if (MSVC)
             target_link_libraries(Updater
             PRIVATE
+                desktop-app::external_qt
                 delayimp
             )
             target_link_options(Updater
