@@ -1,0 +1,56 @@
+diff --git a/ui/accessible/ui_accessible_widget.cpp b/ui/accessible/ui_accessible_widget.cpp
+index aa538f7..803188d 100644
+--- a/ui/accessible/ui_accessible_widget.cpp
++++ b/ui/accessible/ui_accessible_widget.cpp
+@@ -6,6 +6,8 @@
+ //
+ #include "ui/accessible/ui_accessible_widget.h"
+ 
++#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
++
+ #include "base/debug_log.h"
+ #include "base/integration.h"
+ #include "base/timer.h"
+@@ -379,3 +381,5 @@ QVariant Widget::attributeValue(QAccessible::Attribute key) const {
+ }
+ 
+ } // namespace Ui::Accessible
++
++#endif // QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+diff --git a/ui/accessible/ui_accessible_widget.h b/ui/accessible/ui_accessible_widget.h
+index a7de7b4..cbeba98 100644
+--- a/ui/accessible/ui_accessible_widget.h
++++ b/ui/accessible/ui_accessible_widget.h
+@@ -6,6 +6,8 @@
+ //
+ #pragma once
+ 
++#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
++
+ #include <QAccessibleWidget>
+ 
+ namespace Ui {
+@@ -69,3 +71,5 @@ public:
+ };
+ 
+ } // namespace Ui::Accessible
++
++#endif // QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+diff --git a/ui/rp_widget.cpp b/ui/rp_widget.cpp
+index 738b60a..367ea5f 100644
+--- a/ui/rp_widget.cpp
++++ b/ui/rp_widget.cpp
+@@ -361,9 +361,13 @@ RpWidget::~RpWidget() {
+ }
+ 
+ QAccessibleInterface *RpWidget::accessibilityCreate() {
++#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+ 	return (accessibilityRole() != QAccessible::Role::NoRole)
+ 		? new Accessible::Widget(this)
+ 		: nullptr;
++#else
++	return nullptr;
++#endif
+ }
+ 
+ QAccessible::Role RpWidget::accessibilityRole() {
