@@ -252,9 +252,9 @@ jobs:
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF ^
           %TDESKTOP_BUILD_DEFINE%
 
-          REM Pre-build kimageformats serially to create output directories (fix C1083)
+          REM Pre-create kimageformats output dirs for Ninja builds (fix C1083)
           if not "${{ matrix.generator }}"=="" (
-            cmake --build ..\out --config Debug --target external_qt_static_plugins_kimageformats --parallel 1
+            powershell -Command "$o=(Resolve-Path ..\out).Path;Get-ChildItem $o\build*.ninja|ForEach-Object{Get-Content $_}|Select-String '^build .+kimageformats.*\.obj:'|ForEach-Object{$l=$_.Line;$i=$l.IndexOf(':');$p=$l.Substring(6,$i-6).Trim();$d=Join-Path $o(Split-Path $p -Parent);if(!(Test-Path$d)){New-Item -ItemType Directory -Path $d -Force|Out-Null}}"
           )
           )
 
