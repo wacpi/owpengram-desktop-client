@@ -253,7 +253,7 @@ jobs:
 
           REM Pre-build kimageformats serially to create output directories (fix C1083)
           if not "${{ matrix.generator }}"=="" (
-            cmake --build ..\out --config Debug --target external_qt_static_plugins_kimageformats --parallel 1
+            powershell -Command "$o=(Resolve-Path ..\out).Path;Get-ChildItem $o -Recurse -Filter *.ninja|Select-String 'build .+kimageformats.*mocs_compilation.*\.obj'|ForEach-Object{$p=if($_.Line -match '^build\s+(.+?):'){$matches[1]};if($p){$d=Join-Path $o(Split-Path $p -Parent);if(!(Test-Path$d)){New-Item -ItemType Directory -Path $d -Force|Out-Null}}}"
           )
 
           cmake --build ..\out --config Debug --parallel
