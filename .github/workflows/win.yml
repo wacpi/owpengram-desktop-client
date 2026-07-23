@@ -101,6 +101,19 @@ jobs:
           git config --global user.email "you@example.com"
           git config --global user.name "Sample"
 
+      - name: Patch submodules for CI.
+        shell: bash
+        run: |
+          # Patch lib_ui: wrap Qt6-only accessibility sources in QT_VERSION guard
+          LIB_UI_CMAKE=$TBUILD/$REPO_NAME/Telegram/lib_ui/CMakeLists.txt
+          if [ -f "$LIB_UI_CMAKE" ]; then
+            sed -i '/    ui\/accessible\/ui_accessible_factory\.cpp/i\if (QT_VERSION GREATER_EQUAL 6)' "$LIB_UI_CMAKE"
+            sed -i '/    ui\/accessible\/ui_accessible_widget\.h/a\endif()' "$LIB_UI_CMAKE"
+            echo "Patched lib_ui CMakeLists.txt (wrapped accessible sources in QT_VERSION guard)"
+          else
+            echo "lib_ui CMakeLists.txt not found"
+          fi
+
       - name: Install VS 2026 Build Tools.
         if: matrix.arch == 'arm64'
         shell: pwsh
@@ -238,6 +251,11 @@ jobs:
           -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF ^
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF ^
           %TDESKTOP_BUILD_DEFINE%
+
+          REM Pre-create kimageformats output dirs for Ninja builds (fix C1083)
+          if not "%TDESKTOP_BUILD_GENERATOR%"=="" (
+            powershell -Command "$o=(Resolve-Path '..\out').Path;$f=Get-ChildItem '..\out\*.ninja';foreach($x in $f){$l=Select-String $x.FullName -Pattern 'kimageformats.*mocs_compilation.*\.obj' -Simple;foreach($y in $l){$r=($y.Line -split ':')[0].Trim();$d=Join-Path $o (Split-Path $r -Parent);if(!(Test-Path $d)){New-Item -ItemType Directory -Path $d -Force|Out-Null;Write-Host ('Created: '+$d)}}}"
+          )
 
           cmake --build ..\out --config Debug --parallel
 

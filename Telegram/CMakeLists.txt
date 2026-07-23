@@ -2403,6 +2403,8 @@ if (NOT DESKTOP_APP_DISABLE_AUTOUPDATE AND NOT build_macstore AND NOT build_wins
         _other/updater.h
     )
 
+    target_include_directories(Updater PRIVATE ${src_loc})
+
     set_target_properties(Updater PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${output_folder}
     )
