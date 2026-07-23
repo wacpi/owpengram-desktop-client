@@ -256,6 +256,7 @@ jobs:
           if not "${{ matrix.generator }}"=="" (
             cmake --build ..\out --config Debug --target external_qt_static_plugins_kimageformats --parallel 1
           )
+          )
 
           cmake --build ..\out --config Debug --parallel
 

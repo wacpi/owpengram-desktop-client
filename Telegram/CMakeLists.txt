@@ -2418,6 +2418,7 @@ if (NOT DESKTOP_APP_DISABLE_AUTOUPDATE AND NOT build_macstore AND NOT build_wins
         )
         target_include_directories(Updater PRIVATE ${lib_base_loc})
         if (MSVC)
+            target_compile_definitions(Updater PRIVATE _CRT_SECURE_NO_WARNINGS)
             target_link_libraries(Updater
             PRIVATE
                 desktop-app::external_qt
