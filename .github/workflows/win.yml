@@ -95,7 +95,6 @@ jobs:
 
           echo "$(sha256sum $TBUILD/$REPO_NAME/$PREPARE_PATH | awk '{ print $1 }')" >> CACHE_KEY.txt
           echo "$SDK" >> CACHE_KEY.txt
-          echo "build=release" >> CACHE_KEY.txt
           echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
 
           echo "Configurate git for cherry-picks."
@@ -115,7 +114,7 @@ jobs:
             echo "Patch or lib_ui not found"
           fi
 
-      - name: Install VS 2026 Build Tools (arm64).
+      - name: Install VS 2026 Build Tools.
         if: matrix.arch == 'arm64'
         shell: pwsh
         run: |
@@ -128,26 +127,12 @@ jobs:
           Remove-Item vs_buildtools.exe -Force
           if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { exit $p.ExitCode }
 
-      - name: Install ATL for x64/x86.
-        if: matrix.arch != 'arm64'
-        shell: pwsh
-        run: |
-          $installPath = &"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
-          if (-not $installPath) { throw "VS not found by vswhere" }
-          $vsInstaller = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe"
-          $p = Start-Process -FilePath $vsInstaller -Wait -PassThru -ArgumentList @(
-            'modify', "--installPath=$installPath",
-            '--quiet','--norestart','--nocache',
-            '--add','Microsoft.VisualStudio.Component.VC.ATL'
-          )
-          if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { throw "ATL install failed (exit $($p.ExitCode))" }
-
       - uses: Eden-CI/msvc-dev-cmd@master
         name: Native Tools Command Prompt.
         with:
           arch: ${{ matrix.arch }}
           sdk: ${{ env.SDK }}
-          toolset: ${{ case(matrix.arch == 'arm64', '', '14.44') }}
+          toolset: ${{ matrix.arch == 'arm64' && '' || '14.44' }}
 
       - name: NuGet sources.
         run: |
@@ -187,7 +172,7 @@ jobs:
 
       - name: Libraries.
         run: |
-          %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat silent ${{ matrix.qt }}
+          %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat skip-release silent ${{ matrix.qt }}
 
       - name: Copy avconfig.h to ffmpeg source tree.
         shell: bash
@@ -260,26 +245,26 @@ jobs:
           %TDESKTOP_BUILD_ARCH% ^
           ${{ matrix.qt }} ^
           %TDESKTOP_BUILD_API% ^
-          -D CMAKE_CONFIGURATION_TYPES=Release ^
+          -D CMAKE_CONFIGURATION_TYPES=Debug ^
           -D CMAKE_COMPILE_WARNING_AS_ERROR=ON ^
-          -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded ^
+          -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= ^
           -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF ^
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF ^
           %TDESKTOP_BUILD_DEFINE%
 
-          REM Pre-create kimageformats AUTOMOC hash dirs for Ninja builds (fix C1083)
+          REM Pre-build kimageformats serially to create output directories (fix C1083)
           if not "${{ matrix.generator }}"=="" (
-            powershell -Command "$o=(Resolve-Path ..\out).Path;Get-ChildItem $o -Recurse -Filter *.ninja|Select-String 'build .+kimageformats.*mocs_compilation.*\.obj'|ForEach-Object{$p=if($_.Line -match '^build\s+(.+?):'){$matches[1]};if($p){$d=Join-Path $o(Split-Path $p -Parent);if(!(Test-Path$d)){New-Item -ItemType Directory -Path $d -Force|Out-Null}}}"
+            cmake --build ..\out --config Debug --target external_qt_static_plugins_kimageformats --parallel 1
           )
 
-          cmake --build ..\out --config Release --parallel
+          cmake --build ..\out --config Debug --parallel
 
       - name: Move artifact.
         if: (env.UPLOAD_ARTIFACT == 'true') || (github.ref == 'refs/heads/nightly')
         run: |
-          set OUT=%TBUILD%\%REPO_NAME%\out\Release
+          set OUT=%TBUILD%\%REPO_NAME%\out\Debug
           mkdir artifact
-          move %OUT%\OwpenGram.exe artifact/
+          move %OUT%\Telegram.exe artifact/
           move %OUT%\Updater.exe artifact/
       - uses: actions/upload-artifact@v7
         name: Upload artifact.
