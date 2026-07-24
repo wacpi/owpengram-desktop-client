@@ -67,6 +67,9 @@ jobs:
         shell: cmd
 
     steps:
+      - name: Enable long paths.
+        run: reg add "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v LongPathsEnabled /t REG_DWORD /d 1 /f
+
       - name: Prepare directories.
         run: |
           mkdir %userprofile%\TBuild\Libraries
@@ -238,7 +241,8 @@ jobs:
       - name: Telegram Desktop build.
         if: env.ONLY_CACHE == 'false'
         run: |
-          cd %userprofile%\TBuild\%REPO_NAME%\Telegram
+          subst T: %userprofile%\TBuild
+          cd /d T:\%REPO_NAME%\Telegram
 
           call configure.bat ^
           %TDESKTOP_BUILD_GENERATOR% ^
